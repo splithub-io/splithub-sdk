@@ -1,0 +1,34 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          {
+            echo "All SplitHub packages are on npm at $version."
+            echo
+            echo '```bash'
+            echo "npx splithub@$version init"
+            echo '```'
+            echo
+            echo "| Package | npm |"
+            echo "|---|---|"
+            for name in splithub @splithub/mcp @splithub/core @splithub/react @splithub/next @splithub/browser @splithub/node @splithub/adapter-sqlite @splithub/adapter-d1; do
+              echo "| \`$name\` | [$version](https://www.npmjs.com/package/$name/v/$version) |"
+            done
+          } > notes.md
+          gh release create "$TAG" --title "SplitHub SDK $version" --notes-file notes.md --verify-tag

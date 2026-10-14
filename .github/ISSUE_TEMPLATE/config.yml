@@ -4,5 +4,5 @@ contact_links:
     url: https://app.splithub.io/contact
     about: Problems with your account, billing or the dashboard go here.
   - name: Security problem
-    url: https://github.com/splithub-io/splithub-sdk/blob/main/CONTRIBUTING.md#reporting-a-security-problem
+    url: https://github.com/splithub-io/splithub-sdk/blob/main/SECURITY.md
     about: Please don't post it publicly. Write to us instead.
