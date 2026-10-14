@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: SplitHub Cloud or the dashboard
+    url: https://app.splithub.io/contact
+    about: Problems with your account, billing or the dashboard go here.
+  - name: Security problem
+    url: https://github.com/splithub-io/splithub-sdk/blob/main/CONTRIBUTING.md#reporting-a-security-problem
+    about: Please don't post it publicly. Write to us instead.

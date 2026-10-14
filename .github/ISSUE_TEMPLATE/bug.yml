@@ -1,0 +1,51 @@
+name: Bug
+description: Something in the SDK, the CLI or the MCP server doesn't work as it should.
+labels: [bug]
+body:
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - splithub (CLI)
+        - "@splithub/mcp"
+        - "@splithub/core"
+        - "@splithub/react"
+        - "@splithub/next"
+        - "@splithub/browser (sh.js)"
+        - "@splithub/node"
+        - "@splithub/adapter-sqlite"
+        - "@splithub/adapter-d1"
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`npx splithub --version`, or the version in your package.json."
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to see it
+      description: The smallest config or code that shows the problem. Remove your keys first.
+      render: ts
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `npx splithub doctor --json`
+      render: json
+  - type: input
+    id: env
+    attributes:
+      label: Where it runs
+      placeholder: Next 15 on Vercel, Node 22, Chrome 130

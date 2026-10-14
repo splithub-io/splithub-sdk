@@ -1,0 +1,183 @@
+// Store templates for self-hosted mode: `splithub init --mode self --db postgres|mysql|custom`
+// writes splithub/store.ts from one of these. Each implements the Store interface
+// from @splithub/node (insertEvents, variantCounts, summaries) with the same
+// attribution rule as the cloud, through variantCountsSql from @splithub/node.
+
+export type DbKind = 'sqlite' | 'postgres' | 'mysql' | 'custom';
+export const DB_KINDS: DbKind[] = ['sqlite', 'postgres', 'mysql', 'custom'];
+
+export const PG_STORE = `import { countsFromRow, variantCountsSql, type ExperimentSummary, type Store, type StoredEvent, type StoreVariantCounts } from '@splithub/node';
+import { Pool } from 'pg';
+
+// SplitHub events in your Postgres. Run once (or add to your migrations):
+export const SCHEMA_SQL = \`
+CREATE TABLE IF NOT EXISTS splithub_events (
+  id          text PRIMARY KEY,
+  type        text NOT NULL,            -- exposure | goal
+  experiment  text,
+  variant     text,
+  goal        text,
+  visitor_id  text NOT NULL,
+  session_id  text NOT NULL,
+  ts          bigint NOT NULL,          -- client clock, unix ms
+  url         text,
+  props       jsonb,
+  received_at bigint NOT NULL,          -- server clock, unix ms
+  host        text,
+  country     text,
+  device      text,
+  browser     text
+);
+CREATE INDEX IF NOT EXISTS splithub_events_exp  ON splithub_events (type, experiment, visitor_id, ts);
+CREATE INDEX IF NOT EXISTS splithub_events_goal ON splithub_events (type, goal, visitor_id, ts);
+\`;
+
+// The attribution rule shared by every SplitHub store (first exposure, 60 s clock skew, 50 goals per visitor and day).
+const counts = variantCountsSql({ dialect: 'postgres', table: 'splithub_events' });
+
+export function pgStore(pool: Pool = new Pool({ connectionString: process.env.DATABASE_URL })): Store {
+  return {
+    async insertEvents(events: StoredEvent[]) {
+      if (events.length === 0) return 0;
+      const cols = 15;
+      const values: unknown[] = [];
+      const rows = events.map((e, i) => {
+        values.push(e.id, e.type, e.experiment, e.variant, e.goal, e.visitorId, e.sessionId, e.ts, e.url, e.props ? JSON.stringify(e.props) : null, e.receivedAt, e.host ?? null, e.country ?? null, e.device ?? null, e.browser ?? null);
+        return '(' + Array.from({ length: cols }, (_, j) => '$' + (i * cols + j + 1)).join(', ') + ')';
+      });
+      const r = await pool.query(
+        'INSERT INTO splithub_events (id, type, experiment, variant, goal, visitor_id, session_id, ts, url, props, received_at, host, country, device, browser) VALUES ' + rows.join(', ') + ' ON CONFLICT (id) DO NOTHING',
+        values
+      );
+      return r.rowCount ?? 0;
+    },
+    async variantCounts(experiment: string, goal: string): Promise<StoreVariantCounts[]> {
+      const r = await pool.query(counts.sql, counts.bind({ experiment, goal }));
+      return r.rows.map(countsFromRow);
+    },
+    async summaries(): Promise<ExperimentSummary[]> {
+      const r = await pool.query(
+        \`SELECT experiment, COUNT(*)::int AS exposures, COUNT(DISTINCT visitor_id)::int AS visitors, MIN(ts)::bigint AS first_ts, MAX(ts)::bigint AS last_ts
+         FROM splithub_events WHERE type = 'exposure' GROUP BY experiment\`
+      );
+      return r.rows.map((x) => ({ experiment: String(x.experiment), exposures: Number(x.exposures), visitors: Number(x.visitors), firstExposureAt: x.first_ts == null ? null : Number(x.first_ts), lastExposureAt: x.last_ts == null ? null : Number(x.last_ts) }));
+    },
+    close: () => pool.end(),
+  };
+}
+`;
+
+export const MYSQL_STORE = `import { countsFromRow, variantCountsSql, type ExperimentSummary, type Store, type StoredEvent, type StoreVariantCounts } from '@splithub/node';
+import mysql, { type Pool } from 'mysql2/promise';
+
+// SplitHub events in your MySQL / MariaDB / PlanetScale. Run once (or add to your migrations):
+export const SCHEMA_SQL = \`
+CREATE TABLE IF NOT EXISTS splithub_events (
+  id          VARCHAR(64) PRIMARY KEY,
+  type        VARCHAR(16) NOT NULL,
+  experiment  VARCHAR(64) NULL,
+  variant     VARCHAR(64) NULL,
+  goal        VARCHAR(64) NULL,
+  visitor_id  VARCHAR(64) NOT NULL,
+  session_id  VARCHAR(64) NOT NULL,
+  ts          BIGINT NOT NULL,
+  url         VARCHAR(512) NULL,
+  props       JSON NULL,
+  received_at BIGINT NOT NULL,
+  host        VARCHAR(255) NULL,
+  country     VARCHAR(8) NULL,
+  device      VARCHAR(16) NULL,
+  browser     VARCHAR(32) NULL,
+  INDEX splithub_events_exp (type, experiment, visitor_id, ts),
+  INDEX splithub_events_goal (type, goal, visitor_id, ts)
+);
+\`;
+
+// The attribution rule shared by every SplitHub store (first exposure, 60 s clock skew, 50 goals per visitor and day).
+const counts = variantCountsSql({ dialect: 'mysql', table: 'splithub_events' });
+
+export function mysqlStore(pool: Pool = mysql.createPool(process.env.DATABASE_URL ?? '')): Store {
+  return {
+    async insertEvents(events: StoredEvent[]) {
+      if (events.length === 0) return 0;
+      const values = events.map((e) => [e.id, e.type, e.experiment, e.variant, e.goal, e.visitorId, e.sessionId, e.ts, e.url, e.props ? JSON.stringify(e.props) : null, e.receivedAt, e.host ?? null, e.country ?? null, e.device ?? null, e.browser ?? null]);
+      const [r] = await pool.query(
+        'INSERT IGNORE INTO splithub_events (id, type, experiment, variant, goal, visitor_id, session_id, ts, url, props, received_at, host, country, device, browser) VALUES ?',
+        [values]
+      );
+      return (r as { affectedRows: number }).affectedRows;
+    },
+    async variantCounts(experiment: string, goal: string): Promise<StoreVariantCounts[]> {
+      const [rows] = await pool.query(counts.sql, counts.bind({ experiment, goal }));
+      return (rows as Array<Record<string, unknown>>).map(countsFromRow);
+    },
+    async summaries(): Promise<ExperimentSummary[]> {
+      const [rows] = await pool.query(
+        \`SELECT experiment, COUNT(*) AS exposures, COUNT(DISTINCT visitor_id) AS visitors, MIN(ts) AS first_ts, MAX(ts) AS last_ts
+         FROM splithub_events WHERE type = 'exposure' GROUP BY experiment\`
+      );
+      return (rows as Array<Record<string, unknown>>).map((x) => ({ experiment: String(x.experiment), exposures: Number(x.exposures), visitors: Number(x.visitors), firstExposureAt: x.first_ts == null ? null : Number(x.first_ts), lastExposureAt: x.last_ts == null ? null : Number(x.last_ts) }));
+    },
+    close: () => pool.end(),
+  };
+}
+`;
+
+export const CUSTOM_STORE = `import { attributeVariants, type ExperimentSummary, type Store, type StoredEvent, type StoreVariantCounts } from '@splithub/node';
+
+/**
+ * Your own store (Prisma, Drizzle, Supabase, Mongo, anything). Three methods.
+ * Attribution rule (keep it, so results match the dashboard):
+ *   a visitor counts once per experiment, in the variant of their earliest
+ *   exposure (same ts: smallest variant key), and converts when they sent the
+ *   goal at or after that exposure (60 s of clock skew allowed); only the first
+ *   50 events of one goal per visitor and UTC day count; count unique visitors.
+ *   SQL database: run variantCountsSql({ dialect }) from @splithub/node.
+ *   Anything else: load the experiment's exposures and the goal's events and
+ *   return attributeVariants(events, experiment, goal).
+ * Columns worth keeping: id (unique, dedupe on it), type, experiment, variant,
+ * goal, visitor_id, session_id, ts, url, props (json), received_at, host,
+ * country, device, browser.
+ */
+export function customStore(): Store {
+  return {
+    async insertEvents(events: StoredEvent[]): Promise<number> {
+      // Insert, skipping ids that already exist. Return how many were inserted.
+      throw new Error('implement insertEvents ' + events.length);
+    },
+    async variantCounts(experiment: string, goal: string): Promise<StoreVariantCounts[]> {
+      // Per variant: exposures, conversions, revenueSum and revenueSumSq (per-visitor revenue).
+      // Load the exposures of this experiment and the events of this goal, then apply the shared rule.
+      const events: StoredEvent[] = [];
+      if (events.length === 0) throw new Error('implement variantCounts ' + experiment + ' ' + goal);
+      return attributeVariants(events, experiment, goal);
+    },
+    async summaries(): Promise<ExperimentSummary[]> {
+      // Per experiment: exposures, unique visitors, first and last exposure ts (unix ms).
+      throw new Error('implement summaries');
+    },
+  };
+}
+`;
+
+export function storeTemplate(db: DbKind): string | null {
+  return db === 'postgres' ? PG_STORE : db === 'mysql' ? MYSQL_STORE : db === 'custom' ? CUSTOM_STORE : null;
+}
+
+/** Import line + factory call used by the route template. */
+export function storeUsage(db: DbKind, storeImport: string): { imports: string; factory: string } {
+  switch (db) {
+    case 'postgres':
+      return { imports: `import { pgStore } from '${storeImport}';`, factory: 'pgStore()' };
+    case 'mysql':
+      return { imports: `import { mysqlStore } from '${storeImport}';`, factory: 'mysqlStore()' };
+    case 'custom':
+      return { imports: `import { customStore } from '${storeImport}';`, factory: 'customStore()' };
+    default:
+      return { imports: `import { sqliteStore } from '@splithub/adapter-sqlite';`, factory: `sqliteStore({ file: process.env.SPLITHUB_DB ?? './splithub.db' })` };
+  }
+}
+
+export function runtimePackages(db: DbKind): string[] {
+  return db === 'postgres' ? ['pg'] : db === 'mysql' ? ['mysql2'] : db === 'sqlite' ? ['@splithub/adapter-sqlite'] : [];
+}

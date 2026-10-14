@@ -1,0 +1,51 @@
+{
+  "name": "splithub",
+  "version": "0.2.2",
+  "description": "A/B testing for your app in one command. Create a test, start it, read a plain verdict. Works for you and for your coding agent.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/splithub-io/splithub-sdk.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://splithub.io",
+  "bugs": {
+    "url": "https://github.com/splithub-io/splithub-sdk/issues"
+  },
+  "type": "module",
+  "bin": {
+    "splithub": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.9.1",
+    "@splithub/core": "workspace:*",
+    "@splithub/node": "workspace:*",
+    "jiti": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.11"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "typescript": ">=4.7"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  }
+}
