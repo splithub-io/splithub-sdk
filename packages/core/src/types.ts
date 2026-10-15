@@ -106,6 +106,11 @@ export interface ExperimentBase {
   /** Free-form note shown in the dashboard and CLI. */
   description?: string;
   /**
+   * Human name shown in the dashboard and CLI instead of the key (up to 80 characters). Rename
+   * freely: the key stays, and with it the assignment and the collected data.
+   */
+  name?: string;
+  /**
    * Opt-in runtime minimum: days of data (24-hour periods since the first exposure) before a
    * verdict, integer 0..30. Default 0: verdicts depend on sample size, not runtime.
    */
@@ -248,6 +253,8 @@ export interface Experiment {
   goal: string | null;
   seed: string;
   description: string | null;
+  /** Human name; absent = show the key. */
+  name?: string;
   match: string | null;
   /** Ordered: the first variant is the control. */
   variants: Variant[];

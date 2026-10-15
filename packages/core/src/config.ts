@@ -170,6 +170,9 @@ function normalizeExperiment(key: string, input: ExperimentInput, goals: Goal[],
   if (input.goodSample !== undefined && !(Number.isInteger(input.goodSample) && input.goodSample >= 100 && input.goodSample <= 10_000_000)) {
     throw new ConfigError(`experiment "${key}": goodSample must be a whole number from 100 to 10,000,000.`);
   }
+  if (input.name !== undefined && !(typeof input.name === 'string' && input.name.trim() && input.name.trim().length <= 80)) {
+    throw new ConfigError(`experiment "${key}": name must be text of 1 to 80 characters.`);
+  }
   for (const [k, v] of Object.entries(input.schedule ?? {})) {
     if (v !== undefined && Number.isNaN(Date.parse(v))) throw new ConfigError(`experiment "${key}": schedule.${k} must be an ISO date.`);
   }
@@ -188,6 +191,7 @@ function normalizeExperiment(key: string, input: ExperimentInput, goals: Goal[],
     goal: input.goal ?? null,
     seed: input.seed ?? key,
     description: input.description ?? null,
+    ...(input.name !== undefined ? { name: input.name.trim() } : {}),
     match: input.kind === 'redirect' ? input.match : null,
     variants,
     ...(input.kind === 'mvt' ? { factors: mvtVariants(key, input.factors).factors } : {}),

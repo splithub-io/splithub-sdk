@@ -107,6 +107,8 @@ const REPORT = { project: 'demo', markdown: '### SplitHub · demo\n\nfrom the se
 const SKILLS = { version: 'abc', files: [{ path: '.claude/skills/splithub/SKILL.md', body: '---\nname: splithub\n---\nfrom the server\n' }, { path: '../evil.md', body: 'nope' }, { path: 'AGENTS.md', body: '\n## A/B testing (SplitHub)\nserver section\n' }] };
 const STATUS = { project: 'demo', experiments: [{ experiment: 'hero', kind: 'value', status: 'running', goal: 'signup', description: null, exposures: 200, visitors: 200, days: 2, verdict: 'insufficient_sample', headline: '#2 +10% (too early)', best: null, sample: 'ok', stars: 1, daysToVerdict: 6, display: { label: 'TOO EARLY', lines: ['#2 +10% (too early)'] } }, { experiment: '__holdout', kind: 'value', status: 'running', goal: 'signup', description: null, exposures: 10, visitors: 10, days: 2, verdict: 'insufficient_sample', headline: 'too early', best: null }] };
 
+const pushes: Array<{ replace?: string[]; same?: string[] }> = [];
+
 beforeAll(async () => {
   if (!existsSync(cli)) execFileSync(process.execPath, [resolve(__dirname, '../../../../node_modules/tsup/dist/cli-default.js')], { cwd: resolve(__dirname, '../..'), stdio: 'ignore' });
   server = createServer((req, res) => {
@@ -127,6 +129,19 @@ beforeAll(async () => {
     else if (req.method === 'PUT' && req.url === '/overrides/hero') {
       overrides.push('hero');
       res.end(JSON.stringify({ ok: true }));
+    } else if (req.method === 'PUT' && req.url === '/config') {
+      // The cloud's key check: "hero" already belongs to another test until the push says replace or same.
+      let raw = '';
+      req.on('data', (chunk: Buffer) => (raw += chunk.toString()));
+      req.on('end', () => {
+        const body = JSON.parse(raw) as { replace?: string[]; same?: string[] };
+        pushes.push(body);
+        if (body.replace?.includes('hero') || body.same?.includes('hero')) res.end(JSON.stringify({ ok: true, project: 'p', version: 2, pushedAt: 'now', publicKey: 'pk_test', experiments: 1 }));
+        else {
+          res.statusCode = 409;
+          res.end(JSON.stringify({ error: 'hero: this key already belongs to another test', code: 'key_conflict', conflicts: [{ key: 'hero', reason: 'old_data', exposures: 1200 }] }));
+        }
+      });
     } else if (req.url === '/scope') {
       res.statusCode = 403;
       res.end(JSON.stringify({ error: "This API key can't change this project.", code: 'insufficient_scope', needed: 'write' }));
@@ -387,5 +402,25 @@ describe('metrics, layers, holdout, archive, scopes', () => {
     expect((await run(dir, ['remove', 'hero', '--api', url, '--token', 'sk_test'])).json).toMatchObject({ cloud: 'finished' });
     archiveRoute = true;
     expect(overrides).toEqual(['hero']);
+  }, 60_000);
+});
+
+describe('names and keys', () => {
+  it('create --name writes the name beside the key', async () => {
+    const dir = scratch('named');
+    const r = await run(dir, ['create', '--kind', 'component', '--id', 'cta', '--variants', 'control,b', '--name', 'Signup button', '--yes']);
+    expect(r.code).toBe(0);
+    expect(readFileSync(join(dir, 'splithub.config.ts'), 'utf8')).toContain("name: 'Signup button'");
+  }, 60_000);
+
+  it('push stops on a key that belongs to another test until --replace or --same', async () => {
+    const dir = scratch('conflict');
+    const file = join(dir, 'splithub.config.ts');
+    writeFileSync(file, readFileSync(file, 'utf8').replace("storage: { mode: 'self', endpoint: '/api/splithub' }", "storage: { mode: 'cloud', key: 'pk_test' }"));
+    const stopped = await run(dir, ['push', '--api', url, '--token', 'sk_test']);
+    expect(stopped.json).toMatchObject({ code: 'KEY_CONFLICT' });
+    expect(String(stopped.json.hint)).toContain('--replace hero');
+    expect((await run(dir, ['push', '--api', url, '--token', 'sk_test', '--same', 'hero'])).code).toBe(0);
+    expect(pushes.at(-1)).toMatchObject({ replace: [], same: ['hero'] });
   }, 60_000);
 });

@@ -1,6 +1,6 @@
 {
   "name": "@splithub/browser",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "SplitHub for sites without a build step: one script tag runs redirect tests and counts goals.",
   "license": "MIT",
   "repository": {

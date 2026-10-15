@@ -52,6 +52,10 @@ combinations and, below them, each factor summed over its combinations). With li
 ## Create an experiment
 
 1. \`npx splithub create --kind <value|component|redirect|mvt> --id <key> … --goal <goal> --yes --json\` (see the table).
+   The key is the test's id for good: never reuse one from an earlier test. \`--name "Signup button"\` adds a human
+   name (dashboard, CLI) that can change any time. \`push\` fails with \`KEY_CONFLICT\` when a key already belongs to
+   another test: ask the user, then rename the key, or push with \`--replace <key>\` (new test, old numbers cleared)
+   or \`--same <key>\` (same test). \`KEY_DELETED\`: a deleted test used the key; pick a new one.
 2. Goal: pick an existing key or add one to \`goals\`:
    \`{ type: 'event' }\` + \`track('<goal>')\` where the conversion happens; \`{ type: 'pageview', path: '/thanks' }\`;
    \`{ type: 'click', selector: '#buy' }\` (tracked automatically by the SDK and the script).

@@ -67,7 +67,7 @@ describe('createSplitHubHandler', () => {
     expect(body.verdict).toBeUndefined();
     const statusBody = (await (await handler(new Request('http://x/api/splithub/status'))).json()) as { experiments: Array<Record<string, unknown>>; analysis: { available: boolean } };
     expect(statusBody.analysis.available).toBe(false);
-    expect(Object.keys(statusBody.experiments[0]!).sort()).toEqual(['days', 'description', 'experiment', 'exposures', 'goal', 'kind', 'status', 'visitors']);
+    expect(Object.keys(statusBody.experiments[0]!).sort()).toEqual(['days', 'description', 'experiment', 'exposures', 'goal', 'kind', 'name', 'status', 'visitors']);
   });
 
   it('counts a visitor once, in the variant of their earliest exposure', async () => {

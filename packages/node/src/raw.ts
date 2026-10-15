@@ -37,6 +37,8 @@ export interface RawResults {
   status: string;
   goal: string | null;
   description: string | null;
+  /** Human name; null = show the key. */
+  name: string | null;
   /** Declared order: the first variant is the control. */
   variants: RawVariant[];
   metrics?: RawMetric[];
@@ -51,6 +53,8 @@ export interface RawStatusRow {
   status: string;
   goal: string | null;
   description: string | null;
+  /** Human name; null = show the key. */
+  name: string | null;
   exposures: number;
   visitors: number;
   /** Whole days with data, at least 1 once there is any; 0 without data. */
@@ -105,6 +109,7 @@ export async function rawResults(config: SplitHubConfig, store: Store, key: stri
     status: experiment.status,
     goal,
     description: experiment.description ?? null,
+    name: experiment.name ?? null,
     variants: rawVariants(experiment, observed, withRevenue),
     ...(metrics?.length ? { metrics } : {}),
     days: Math.round(span * 10) / 10,
@@ -120,6 +125,6 @@ export async function rawStatusTable(config: SplitHubConfig, store: Store): Prom
   return all.map((exp) => {
     const s = byKey.get(exp.key);
     const days = s?.firstExposureAt && s.lastExposureAt ? Math.max(1, Math.ceil((s.lastExposureAt - s.firstExposureAt) / DAY_MS)) : 0;
-    return { experiment: exp.key, kind: exp.kind, status: exp.status, goal: exp.goal, description: exp.description ?? null, exposures: s?.exposures ?? 0, visitors: s?.visitors ?? 0, days };
+    return { experiment: exp.key, kind: exp.kind, status: exp.status, goal: exp.goal, description: exp.description ?? null, name: exp.name ?? null, exposures: s?.exposures ?? 0, visitors: s?.visitors ?? 0, days };
   });
 }

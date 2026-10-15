@@ -26,6 +26,8 @@ const NEXT_BY_CODE: Record<string, string> = {
   CONFIG_UNSAFE: 'Edit splithub.config.ts by hand where the experiment is defined, then call splithub_doctor.',
   CONFIG_WRITE: 'The config file was restored as it was. Make the change by hand, then call splithub_doctor.',
   CONFIG_PARSE: 'Fix the error in splithub.config.ts, then call splithub_doctor.',
+  KEY_CONFLICT: 'The key already belongs to another test in the cloud. Ask the user whether this is a new test (rename the key, or splithub_push with replace: the old numbers are cleared) or the same test (splithub_push with same). Never pick for them.',
+  KEY_DELETED: 'A deleted test used this key. Rename the experiment key in splithub.config.ts (and in the code), then call splithub_push again.',
   INSUFFICIENT_SCOPE: 'This API key can only read. Ask the user for a key with the write scope (dashboard, Settings, API keys) or call splithub_login again.',
 };
 
@@ -147,6 +149,7 @@ server.registerTool(
       match: z.string().optional().describe('redirect experiments: path to test, e.g. /'),
       to: z.record(z.string()).optional().describe('redirect experiments: variant → destination path'),
       status: z.enum(['draft', 'running']).optional(),
+      name: z.string().max(80).optional().describe('human name shown instead of the key; can be renamed later, the key stays'),
       description: z.string().optional(),
       traffic: z.number().gt(0).max(100).optional().describe('percent of visitors in the test (default 100)'),
       maxVisitors: z.number().int().positive().optional().describe('stop counting after this many visitors'),
@@ -170,6 +173,7 @@ server.registerTool(
     if (a.match) args.push('--match', a.match);
     if (a.to) for (const [k, v] of Object.entries(a.to)) args.push('--to', `${k}=${v}`);
     if (a.status) args.push('--status', a.status);
+    if (a.name) args.push('--name', a.name);
     if (a.description) args.push('--description', a.description);
     if (a.traffic !== undefined) args.push('--traffic', String(a.traffic));
     if (a.maxVisitors !== undefined) args.push('--max-visitors', String(a.maxVisitors));
@@ -231,7 +235,24 @@ server.registerTool(
   async ({ experiment }) => reply(await runCli(experiment ? ['review', experiment] : ['review']))
 );
 
-server.registerTool('splithub_push', { description: 'Upload splithub.config.ts to SplitHub Cloud (cloud mode). Returns experiments created in the dashboard that were written into the file. dryRun: only check the config and show what would change.', inputSchema: { dryRun: z.boolean().optional() } }, async ({ dryRun }) => reply(await runCli(dryRun ? ['push', '--dry-run'] : ['push'])));
+server.registerTool(
+  'splithub_push',
+  {
+    description: 'Upload splithub.config.ts to SplitHub Cloud (cloud mode). Returns experiments created in the dashboard that were written into the file. dryRun: only check the config and show what would change. A key that already belonged to another test fails with KEY_CONFLICT: ask the user, then push with replace (new test, old numbers cleared) or same (same test, numbers stay).',
+    inputSchema: {
+      dryRun: z.boolean().optional(),
+      replace: z.array(z.string()).optional().describe('keys that are new tests: the old numbers under them are cleared'),
+      same: z.array(z.string()).optional().describe('keys that are the same test as before: the numbers stay'),
+    },
+  },
+  async ({ dryRun, replace, same }) => {
+    if (dryRun) return reply(await runCli(['push', '--dry-run']));
+    const args = ['push'];
+    if (replace?.length) args.push('--replace', replace.join(','));
+    if (same?.length) args.push('--same', same.join(','));
+    return reply(await runCli(args));
+  }
+);
 server.registerTool('splithub_pull', { description: 'Fetch the cloud config and write dashboard-created experiments into splithub.config.ts.' }, async () => reply(await runCli(['pull'])));
 server.registerTool('splithub_doctor', { description: 'Check the installation: config, provider, middleware, routes, code references, endpoint. Run after wiring code; ok: false lists what to fix.' }, async () => reply(await runCli(['doctor'])));
 server.registerTool('splithub_whoami', { description: 'Which cloud project this folder is connected to, and its public key.' }, async () => reply(await runCli(['whoami'])));

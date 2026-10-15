@@ -295,6 +295,8 @@ export interface NewExperiment {
   factors?: Record<string, Record<string, string>>;
   goal?: string;
   match?: string;
+  /** Human name shown instead of the key. */
+  name?: string;
   description?: string;
   /** Targeting graph from the dashboard, written verbatim as JSON. */
   flow?: unknown;
@@ -358,6 +360,7 @@ export function renderExperiment(e: NewExperiment, indent = '    '): string {
     lines.push(`${i2}metrics: { ${parts.join(', ')} },`);
   }
   if (e.layer) lines.push(`${i2}layer: { key: ${q(e.layer.key)}, range: [${e.layer.range[0]}, ${e.layer.range[1]}] },`);
+  if (e.name) lines.push(`${i2}name: ${q(e.name)},`);
   if (e.description) lines.push(`${i2}description: ${q(e.description)},`);
   if (e.flow) {
     const json = JSON.stringify(e.flow, null, 2).split('\n');

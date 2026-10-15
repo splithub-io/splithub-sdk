@@ -1,6 +1,6 @@
 {
   "name": "@splithub/node",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Run SplitHub on your own server: one handler for events and results, your database behind a small Store interface.",
   "license": "MIT",
   "repository": {

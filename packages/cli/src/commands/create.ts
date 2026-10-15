@@ -186,6 +186,8 @@ export async function create(flags: Flags): Promise<void> {
   const status = (str(flags.status) as ExperimentStatus | undefined) ?? 'running';
   if (!['draft', 'running', 'paused'].includes(status)) fail('INVALID_FLAG', `A new experiment can't be "${status}".`, 'Use --status running or --status draft.');
   const description = str(flags.description);
+  const name = str(flags.name)?.trim() || undefined;
+  if (name && name.length > 80) fail('INVALID_FLAG', 'The name is longer than 80 characters.', 'Use a shorter --name; the key stays the id.');
 
   const experiment: NewExperiment = {
     key: id,
@@ -193,6 +195,7 @@ export async function create(flags: Flags): Promise<void> {
     status,
     goal,
     match,
+    name,
     description,
     variants: mvt ? mvt.variants.map((v) => ({ key: v.key, weight: v.weight })) : variantKeys.map((k, i) => ({ key: k, weight: weights[i]!, value: values[k], to: tos[k] })),
     ...(mvt ? { factors } : {}),

@@ -34,10 +34,11 @@ Usage
   splithub whoami                 the project this directory is connected to
   splithub logout                 disconnect this directory
   splithub push [--dry-run]       upload splithub.config.ts to SplitHub Cloud (--dry-run: check and show what would change)
+                                  a key that already belonged to another test stops the push: --replace <keys> (new test, old numbers cleared) or --same <keys> (same test, numbers stay)
   splithub pull                   show the config stored in the cloud
 
 create flags
-  --kind value|component|redirect|mvt  --id <key>  --goal <goal>  --status running|draft  --description "..."  --yes
+  --kind value|component|redirect|mvt  --id <key>  --goal <goal>  --status running|draft  --name "Hero headline"  --description "..."  --yes
   value / component / redirect: --variants control,b  --weights 50,50
   value:     --value control="Old text" --value b="New text" (repeatable)
   redirect:  --match /path  --to control=/ --to b=/new (repeatable)
@@ -91,6 +92,9 @@ async function main(): Promise<void> {
       factor: { type: 'string', multiple: true },
       status: { type: 'string' },
       description: { type: 'string' },
+      name: { type: 'string' },
+      replace: { type: 'string' },
+      same: { type: 'string' },
       traffic: { type: 'string' },
       'max-visitors': { type: 'string' },
       'min-days': { type: 'string' },

@@ -13,6 +13,7 @@ interface CloudExperiment {
   status: 'draft' | 'running' | 'paused' | 'finished';
   goal: string | null;
   match: string | null;
+  name?: string;
   description: string | null;
   variants: Array<{ key: string; weight: number; value?: unknown; to?: string; levels?: Record<string, string> }>;
   /** Multivariate: the factors whose combinations the variants are. */
@@ -65,6 +66,7 @@ async function adoptCloudExperiments(file: string, cloudOnly: CloudExperiment[] 
       status: e.status,
       goal: e.goal ?? undefined,
       match: e.match ?? undefined,
+      name: e.name,
       description: e.description ?? undefined,
       flow: e.flow ?? undefined,
       traffic: e.traffic,
@@ -113,6 +115,25 @@ export function configDiff(local: LocalExperiment[], cloud: Array<CloudExperimen
   return { added, removed, changed };
 }
 
+interface KeyConflict {
+  key: string;
+  reason: 'dashboard' | 'old_data';
+  exposures?: number;
+}
+
+const keyList = (v: Flags[string]): string[] => (typeof v === 'string' ? v.split(',').map((k) => k.trim()).filter(Boolean) : []);
+
+/** The cloud already has another test under a pushed key: say which, and the two ways on. */
+function keyConflict(conflicts: KeyConflict[]): never {
+  const why = conflicts.map((k) => (k.reason === 'dashboard' ? `${k.key} (a different test made in the dashboard)` : `${k.key} (an earlier test, ${(k.exposures ?? 0).toLocaleString('en-US')} visitors)`));
+  const keys = conflicts.map((k) => k.key).join(',');
+  fail(
+    'KEY_CONFLICT',
+    `These keys already belong to another test in the cloud: ${why.join('; ')}. Nothing was pushed.`,
+    `New test: rename its key, or run npx splithub push --replace ${keys} (the old numbers are cleared). Same test: npx splithub push --same ${keys}.`
+  );
+}
+
 async function cloudFetch(url: string, init: RequestInit): Promise<Response> {
   try {
     return await fetch(url, init);
@@ -139,9 +160,11 @@ export async function push(flags: Flags): Promise<void> {
   const res = await cloudFetch(`${target.url}/config`, {
     method: 'PUT',
     headers: { authorization: `Bearer ${target.token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ config }),
+    body: JSON.stringify({ config, replace: keyList(flags.replace), same: keyList(flags.same) }),
   });
-  const body = (await res.json().catch(() => ({}))) as Partial<PushResponse> & { error?: string };
+  const body = (await res.json().catch(() => ({}))) as Partial<PushResponse> & { error?: string; code?: string; conflicts?: KeyConflict[] };
+  if (res.status === 409 && body.code === 'key_conflict' && body.conflicts?.length) keyConflict(body.conflicts);
+  if (res.status === 409 && body.code === 'key_deleted') fail('KEY_DELETED', `${body.error ?? 'A deleted test used one of these keys'}. Nothing was pushed.`, 'Give the test a new key in splithub.config.ts and push again.');
   if (!res.ok) throw apiError(res.status, body, `${target.url}/config responded ${res.status}`);
 
   // Write the public key into the config when it is missing.

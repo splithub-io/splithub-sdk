@@ -35,4 +35,18 @@ describe('defineConfig', () => {
       defineConfig({ project: 'p', storage: { mode: 'self', endpoint: '/x' }, experiments: { e: { kind: 'component', status: 'running', goal: 'missing', variants: { a: 1, b: 1 } } } })
     ).toThrow(/goal "missing"/);
   });
+
+  it('keeps an optional name beside the key', () => {
+    const c = defineConfig({
+      project: 'p',
+      storage: { mode: 'cloud' },
+      experiments: {
+        hero: { kind: 'component', status: 'running', name: '  Hero headline ', variants: { a: 1, b: 1 } },
+        plain: { kind: 'component', status: 'running', variants: { a: 1, b: 1 } },
+      },
+    });
+    expect(c.experiments[0]!.name).toBe('Hero headline');
+    expect('name' in c.experiments[1]!).toBe(false);
+    expect(() => defineConfig({ project: 'p', storage: { mode: 'cloud' }, experiments: { e: { kind: 'component', status: 'running', name: ' ', variants: { a: 1, b: 1 } } } })).toThrow(/name must be/);
+  });
 });
