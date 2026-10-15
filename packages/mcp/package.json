@@ -1,6 +1,6 @@
 {
   "name": "@splithub/mcp",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "SplitHub as MCP tools for Claude Code, Cursor and Codex: create tests, start and finish them, read verdicts.",
   "license": "MIT",
   "repository": {

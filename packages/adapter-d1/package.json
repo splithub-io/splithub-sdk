@@ -1,6 +1,6 @@
 {
   "name": "@splithub/adapter-d1",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Cloudflare D1 store for self-hosted SplitHub on Workers, with an in-memory D1 for tests.",
   "license": "MIT",
   "repository": {

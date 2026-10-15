@@ -1,6 +1,6 @@
 {
   "name": "@splithub/next",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "SplitHub for Next.js: middleware, server components, redirect tests and the route for your own database.",
   "license": "MIT",
   "repository": {

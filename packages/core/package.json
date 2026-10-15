@@ -1,6 +1,6 @@
 {
   "name": "@splithub/core",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "The heart of SplitHub: the config, who sees which variant, and the event queue. No framework, no dependencies.",
   "license": "MIT",
   "repository": {

@@ -89,6 +89,12 @@ describe('assign', () => {
     expect(a.reason).toBe('override');
     expect(a.variant?.key).toBe('b');
   });
+
+  it('treats a preview link with an unknown variant as a preview of the control', () => {
+    const a = assign(config, 'hero-cta', 'v_1', { overrides: { 'hero-cta': 'nope' } });
+    expect(a.reason).toBe('override');
+    expect(a.variant?.key).toBe(config.experiments.find((e) => e.key === 'hero-cta')!.variants[0]!.key);
+  });
 });
 
 describe('runDraftsInDev', () => {

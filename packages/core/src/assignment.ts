@@ -103,8 +103,10 @@ export function assign(
 
   const forced = options.overrides?.[experimentKey];
   if (forced) {
-    const variant = experiment.variants.find((v) => v.key === forced) ?? null;
-    if (variant) return { experiment: experimentKey, variant, reason: 'override' };
+    // A typo in a preview link (`?sh_force=hero:a` with no variant `a`) is still a preview:
+    // it shows the control and is never counted as a visit.
+    const variant = experiment.variants.find((v) => v.key === forced) ?? controlVariant(experiment);
+    return { experiment: experimentKey, variant, reason: 'override' };
   }
 
   // Crawlers and headless browsers see the control and are never counted: the SDK, sh.js and

@@ -180,6 +180,12 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
     ...(browser ? parseForceParam(location.search) : {}),
     ...(options.overrides ?? {}),
   };
+  for (const [key, forced] of Object.entries(overrides)) {
+    const experiment = config.experiments.find((e) => e.key === key);
+    if (experiment && !experiment.variants.some((v) => v.key === forced)) {
+      warn(`sh_force asks for variant "${forced}" of "${key}", which has ${experiment.variants.map((v) => `"${v.key}"`).join(', ')}; showing the control, not counted.`);
+    }
+  }
   const disabled = options.disabled ?? (!browser && !options.transport);
   // The cloud refuses a project with nothing running (429) and drops exposures of drafts.
   // Sending them anyway only fills the console with errors, so they stay local (and visible in debug mode).
