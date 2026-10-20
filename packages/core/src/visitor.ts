@@ -1,4 +1,5 @@
 import { newSessionId, newVisitorId } from './ids';
+import { referrerOrigin } from './paths';
 
 const ONE_YEAR = 60 * 60 * 24 * 365;
 
@@ -71,4 +72,39 @@ export function sessionExposureSet(key = 'sh_exposed'): Set<string> {
 
 export function persistExposureSet(set: Set<string>, key = 'sh_exposed'): void {
   safeStorage('sessionStorage')?.setItem(key, JSON.stringify([...set]));
+}
+
+/** Reads a value from browser storage; null when absent or storage is blocked. */
+export function readStored(kind: 'localStorage' | 'sessionStorage', key: string): string | null {
+  try {
+    return safeStorage(kind)?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Writes (or, with null, removes) a value in browser storage; silent when storage is blocked. */
+export function writeStored(kind: 'localStorage' | 'sessionStorage', key: string, value: string | null): void {
+  try {
+    const s = safeStorage(kind);
+    if (value === null) s?.removeItem(key);
+    else s?.setItem(key, value);
+  } catch {
+    // storage blocked
+  }
+}
+
+/**
+ * The referrer the visit (this tab's session) began with, as `referrerOrigin` reads it, kept in
+ * sessionStorage so a later page of the same visit still knows it. `undefined` when the first page
+ * we saw was reached from the same site (the SDK is not on the landing page) or storage is blocked
+ * and this page came from the site itself.
+ */
+export function sessionReferrer(key = 'sh_ref'): string | undefined {
+  if (!isBrowser()) return undefined;
+  const stored = readStored('sessionStorage', key);
+  if (stored !== null) return stored;
+  const ref = referrerOrigin(document.referrer, location.host);
+  if (ref !== undefined) writeStored('sessionStorage', key, ref);
+  return ref;
 }

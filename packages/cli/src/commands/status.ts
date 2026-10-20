@@ -1,4 +1,4 @@
-import { fetchStatus, resolveTarget } from '../api';
+import { fetchStatus, resolveTarget, type StatusData } from '../api';
 import { detectProject } from '../project';
 import { printJson } from '../errors';
 import { bar, c, starText, statusColor, table, verdictColor, verdictIcon } from '../ui';
@@ -16,6 +16,7 @@ export async function status(flags: Record<string, unknown>): Promise<void> {
   console.log(`${c.bold('SplitHub')} ${c.dim('·')} project ${c.cyan(data.project)} ${c.dim(`· ${target.url}`)}\n`);
   if (data.experiments.length === 0) {
     console.log(c.dim('No experiments in splithub.config.ts yet. Run `splithub create`.'));
+    printProperties(data);
     return;
   }
   const raw = data.analysis?.available === false;
@@ -47,5 +48,22 @@ export async function status(flags: Record<string, unknown>): Promise<void> {
       )
     );
   }
+  printProperties(data);
   if (next) console.log(`\n${c.dim(next)}`);
+}
+
+const change = (x: number | null, before: number) => (x === null ? (before === 0 ? c.dim('new') : '–') : x >= 0 ? c.green(`+${Math.round(x * 100)}%`) : c.red(`${Math.round(x * 100)}%`));
+
+/** One line per analytics property: its last 7 days against the 7 before (SplitHub Cloud). */
+export function printProperties(data: Pick<StatusData, 'properties' | 'propertiesRange'>): void {
+  if (!data.properties?.length) return;
+  const range = data.propertiesRange ? ` ${c.dim(`· ${data.propertiesRange.from} to ${data.propertiesRange.to}`)}` : '';
+  console.log(`\n${c.bold('Analytics')}${range}`);
+  console.log(
+    table(
+      ['PROPERTY', 'STATUS', 'VISITORS', 'VS WEEK BEFORE', 'GOALS'],
+      data.properties.map((p) => [c.bold(p.name), statusColor(p.status), String(p.visitors), change(p.change, p.previousVisitors), p.conversions.map((g) => `${g.goal} ${g.conversions}`).join(', ') || c.dim('–')])
+    )
+  );
+  console.log(c.dim('Details: npx splithub analytics <property>'));
 }

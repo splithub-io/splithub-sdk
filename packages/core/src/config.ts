@@ -6,6 +6,9 @@ import type {
   Holdout,
   Factor,
   Goal,
+  GoalInput,
+  Property,
+  PropertyInput,
   SplitHubConfig,
   SplitHubConfigInput,
   Variant,
@@ -93,13 +96,13 @@ export const HOLDOUT_KEY = '__holdout';
 /** Buckets per layer: an experiment's `layer.range` is a slice of 0..LAYER_BUCKETS. */
 export const LAYER_BUCKETS = 100;
 
-function normalizeMetrics(key: string, input: ExperimentInput, goals: Goal[]): ExperimentMetrics | undefined {
+function normalizeMetrics(key: string, input: ExperimentInput, primary: string | null, goals: Goal[]): ExperimentMetrics | undefined {
   const m = input.metrics;
   if (!m) return undefined;
-  if (!input.goal) throw new ConfigError(`experiment "${key}": metrics need a primary "goal" too.`);
-  const seen = new Set<string>([input.goal]);
-  const check = (goal: unknown, where: string): string => {
-    if (typeof goal !== 'string' || !goals.some((g) => g.key === goal)) throw new ConfigError(`experiment "${key}": metrics.${where} goal "${String(goal)}" is not declared in "goals".`);
+  if (!primary) throw new ConfigError(`experiment "${key}": metrics need a primary "goal" too.`);
+  const seen = new Set<string>([primary]);
+  const check = (name: unknown, where: string): string => {
+    const goal = goalFor(name, goals, `experiment "${key}": metrics.${where}`);
     if (seen.has(goal)) throw new ConfigError(`experiment "${key}": goal "${goal}" is listed twice (primary goal and metrics count once each).`);
     seen.add(goal);
     return goal;
@@ -144,9 +147,9 @@ function normalizeHoldout(input: SplitHubConfigInput, goals: Goal[]): Holdout | 
   const h = input.holdout;
   if (!h) return null;
   if (typeof h.percent !== 'number' || !Number.isFinite(h.percent) || h.percent < 0 || h.percent > 50) throw new ConfigError('holdout.percent must be a number between 0 and 50.');
-  if (h.goal && !goals.some((g) => g.key === h.goal)) throw new ConfigError(`holdout.goal "${h.goal}" is not declared in "goals".`);
+  const goal = h.goal ? goalFor(h.goal, goals, 'holdout.goal') : null;
   if (h.percent === 0) return null;
-  return { percent: h.percent, seed: h.seed ?? HOLDOUT_KEY, goal: h.goal ?? goals[0]?.key ?? null };
+  return { percent: h.percent, seed: h.seed ?? HOLDOUT_KEY, goal: goal ?? goals[0]?.key ?? null };
 }
 
 function normalizeExperiment(key: string, input: ExperimentInput, goals: Goal[], layers: Record<string, unknown> = {}): Experiment {
@@ -155,9 +158,7 @@ function normalizeExperiment(key: string, input: ExperimentInput, goals: Goal[],
   if (traffic < 0 || traffic > 1) {
     throw new ConfigError(`experiment "${key}": traffic must be between 0 and 1.`);
   }
-  if (input.goal && !goals.some((g) => g.key === input.goal)) {
-    throw new ConfigError(`experiment "${key}": goal "${input.goal}" is not declared in "goals".`);
-  }
+  const goal = input.goal ? goalFor(input.goal, goals, `experiment "${key}"`) : null;
   if (input.kind === 'redirect' && !input.match) {
     throw new ConfigError(`experiment "${key}": redirect experiments need "match".`);
   }
@@ -177,7 +178,7 @@ function normalizeExperiment(key: string, input: ExperimentInput, goals: Goal[],
     if (v !== undefined && Number.isNaN(Date.parse(v))) throw new ConfigError(`experiment "${key}": schedule.${k} must be an ISO date.`);
   }
   const variants = normalizeVariants(key, input);
-  const metrics = normalizeMetrics(key, input, goals);
+  const metrics = normalizeMetrics(key, input, goal, goals);
   const layer = normalizeLayer(key, input, layers);
   if (input.flow) {
     const problem = validateFlow(input.flow, variants.map((v) => v.key));
@@ -188,7 +189,7 @@ function normalizeExperiment(key: string, input: ExperimentInput, goals: Goal[],
     kind: input.kind,
     status: input.status,
     traffic,
-    goal: input.goal ?? null,
+    goal,
     seed: input.seed ?? key,
     description: input.description ?? null,
     ...(input.name !== undefined ? { name: input.name.trim() } : {}),
@@ -203,6 +204,100 @@ function normalizeExperiment(key: string, input: ExperimentInput, goals: Goal[],
     ...(input.maxExposures ? { maxExposures: Math.floor(input.maxExposures) } : {}),
     ...(input.schedule && (input.schedule.startAt || input.schedule.endAt) ? { schedule: { startAt: input.schedule.startAt ?? null, endAt: input.schedule.endAt ?? null } } : {}),
   };
+}
+
+function goalExtras(key: string, g: GoalInput): Pick<Goal, 'name' | 'value' | 'event'> {
+  if (g.name !== undefined && !(typeof g.name === 'string' && g.name.trim() && g.name.trim().length <= 80)) throw new ConfigError(`goal "${key}": name must be text of 1 to 80 characters.`);
+  if (g.value !== undefined && !(typeof g.value === 'number' && Number.isFinite(g.value) && g.value >= 0)) throw new ConfigError(`goal "${key}": value must be a number of 0 or more.`);
+  const event = g.type === 'event' ? g.event : undefined;
+  if (event !== undefined && !EVENT_NAME_PATTERN.test(event)) throw new ConfigError(`goal "${key}": event "${event}" is not a valid event name.`);
+  return { ...(g.name !== undefined ? { name: g.name.trim() } : {}), ...(g.value !== undefined ? { value: g.value } : {}), ...(event !== undefined && event !== key ? { event } : {}) };
+}
+
+/** Analytics property ids, like every key: lowercase letters, digits, - and _. Generated ones look like `sh-x1h78w`. */
+export const PROPERTY_KEY_PATTERN = KEY_PATTERN;
+const ID_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+
+/** A new property id: `sh-` and six letters or digits without look-alikes (0/o, 1/l/i). */
+export function newPropertyId(): string {
+  const bytes = new Uint8Array(6);
+  globalThis.crypto.getRandomValues(bytes);
+  return `sh-${Array.from(bytes, (b) => ID_ALPHABET[b % ID_ALPHABET.length]).join('')}`;
+}
+
+/** Custom event names: letters, digits, spaces and `_ . : / -`, up to 64 characters (`signup`, `Video Played`). */
+export const EVENT_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 _.:/-]{0,63}$/;
+
+/**
+ * The goal key of an event name: `Video Played` → `video-played`, `signup` → `signup`.
+ * Lowercase, every run of other characters becomes `-`. Empty when nothing usable is left;
+ * check the result against `PROPERTY_KEY_PATTERN` before sending it as a key.
+ */
+export function eventKey(name: string): string {
+  return String(name)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^[^a-z0-9]+/, '')
+    .slice(0, 64)
+    .replace(/-+$/, '');
+}
+
+/**
+ * The goal key an event name counts as: a declared goal key itself, the goal whose `event`
+ * is that name, or the name's slug (`eventKey`). Null when the name has no usable key.
+ */
+export function goalKeyFor(goals: ReadonlyArray<Pick<Goal, 'key' | 'event'>>, name: string): string | null {
+  if (goals.some((g) => g.key === name)) return name;
+  const byEvent = goals.find((g) => g.event === name);
+  if (byEvent) return byEvent.key;
+  const slug = eventKey(name);
+  return KEY_PATTERN.test(slug) ? slug : null;
+}
+
+/**
+ * The key of the goal an experiment (or the holdout) is judged on. Any event name works: one
+ * that is not declared in `goals` becomes an event goal here (`{ type: 'event' }`, keyed by its
+ * slug, with `event` set when the name differs from the key).
+ */
+function goalFor(name: unknown, goals: Goal[], where: string): string {
+  if (typeof name !== 'string' || !(KEY_PATTERN.test(name) || EVENT_NAME_PATTERN.test(name))) {
+    throw new ConfigError(`${where}: goal "${String(name)}" is not a valid event name (letters, digits, spaces and "_ . : / -", up to 64 characters).`);
+  }
+  const key = goalKeyFor(goals, name);
+  if (!key) throw new ConfigError(`${where}: goal "${name}" has no usable key; use letters or digits in the name.`);
+  if (!goals.some((g) => g.key === key)) {
+    goals.push({ key, type: 'event', path: null, selector: null, revenue: false, description: null, ...(name !== key ? { event: name } : {}) });
+  }
+  return key;
+}
+
+export function normalizeProperty(key: string, input: PropertyInput, goals: Goal[]): Property {
+  assertKey('property', key);
+  const p = input ?? {};
+  const status = p.status ?? 'running';
+  if (status !== 'running' && status !== 'paused') throw new ConfigError(`property "${key}": status must be "running" or "paused".`);
+  if (p.name !== undefined && !(typeof p.name === 'string' && p.name.trim() && p.name.trim().length <= 80)) {
+    throw new ConfigError(`property "${key}": name must be text of 1 to 80 characters.`);
+  }
+  const list = p.goals ?? [];
+  if (!Array.isArray(list)) throw new ConfigError(`property "${key}": goals must be a list of goal keys.`);
+  for (const g of list) {
+    if (!goals.some((d) => d.key === g)) throw new ConfigError(`property "${key}": goal "${String(g)}" is not declared in "goals".`);
+  }
+  return {
+    key,
+    status,
+    ...(p.name !== undefined ? { name: p.name.trim() } : {}),
+    description: p.description ?? null,
+    goals: [...new Set(list)],
+  };
+}
+
+/** The property with this id, or null. Events only go to a property named explicitly, never to a guess. */
+export function pickProperty(config: Pick<SplitHubConfig, 'properties'>, key?: string | null): Property | null {
+  if (!key) return null;
+  return (config.properties ?? []).find((p) => p.key === key) ?? null;
 }
 
 /**
@@ -229,6 +324,7 @@ export function defineConfig(input: SplitHubConfigInput): SplitHubConfig {
       selector: g.type === 'click' ? g.selector : null,
       revenue: g.type === 'event' ? Boolean(g.revenue) : false,
       description: g.description ?? null,
+      ...goalExtras(key, g),
     };
   });
 
@@ -242,6 +338,7 @@ export function defineConfig(input: SplitHubConfigInput): SplitHubConfig {
   );
   assertNoOverlap(experiments);
   const holdout = normalizeHoldout(input, goals);
+  const properties = Object.entries(input.properties ?? {}).map(([key, p]) => normalizeProperty(key, p, goals));
 
   return {
     project: input.project,
@@ -250,6 +347,7 @@ export function defineConfig(input: SplitHubConfigInput): SplitHubConfig {
     runDraftsInDev: input.runDraftsInDev === true,
     goals,
     experiments,
+    ...(properties.length ? { properties } : {}),
     ...(Object.keys(layers).length ? { layers } : {}),
     ...(holdout ? { holdout } : {}),
     __splithub: 2,
@@ -281,7 +379,7 @@ export function holdoutExperiment(config: Pick<SplitHubConfig, 'holdout' | 'goal
     traffic: 1,
     goal: h.goal,
     seed: h.seed,
-    description: `Holdout: ${h.percent}% of visitors see no test at all`,
+    description: `Holdout: ${h.percent}% of visitors see no experiment at all`,
     match: null,
     variants: [
       { key: 'holdout', weight: share },

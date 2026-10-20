@@ -33,7 +33,8 @@ describe('metrics config', () => {
 
   it('rejects unknown, repeated and orphan metric goals', () => {
     const exp = (metrics: object, goal = 'signup') => ({ ...base, experiments: { x: { kind: 'component', status: 'running', variants: { control: 1, b: 1 }, goal: goal || undefined, metrics } } }) as SplitHubConfigInput;
-    expect(() => defineConfig(exp({ guardrails: ['nope'] }))).toThrow(/not declared/);
+    expect(() => defineConfig(exp({ guardrails: ['n?pe'] }))).toThrow(/not a valid event name/);
+    expect(() => defineConfig(exp({ secondary: ['Sign Up'], guardrails: ['sign-up'] }))).toThrow(/twice/);
     expect(() => defineConfig(exp({ secondary: ['signup'] }))).toThrow(/twice/);
     expect(() => defineConfig(exp({ secondary: ['click'] }, ''))).toThrow(/primary "goal"/);
   });
@@ -156,7 +157,8 @@ describe('holdout', () => {
 
   it('validates the percent and describes itself as an experiment', () => {
     expect(() => defineConfig({ ...base, experiments: {}, holdout: { percent: 60 } })).toThrow(/between 0 and 50/);
-    expect(() => defineConfig({ ...base, experiments: {}, holdout: { percent: 5, goal: 'nope' } })).toThrow(/not declared/);
+    expect(() => defineConfig({ ...base, experiments: {}, holdout: { percent: 5, goal: '#nope' } })).toThrow(/not a valid event name/);
+    expect(defineConfig({ ...base, experiments: {}, holdout: { percent: 5, goal: 'Trial Started' } }).holdout?.goal).toBe('trial-started');
     const h = holdoutExperiment(held)!;
     expect(h.key).toBe(HOLDOUT_KEY);
     expect(h.variants.map((x) => [x.key, x.weight])).toEqual([

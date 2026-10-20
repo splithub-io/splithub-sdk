@@ -70,6 +70,28 @@ describe('createSplitHubHandler', () => {
     expect(Object.keys(statusBody.experiments[0]!).sort()).toEqual(['days', 'description', 'experiment', 'exposures', 'goal', 'kind', 'name', 'status', 'visitors']);
   });
 
+  it('counts track() of an undeclared event name as the goal of an experiment judged on it', async () => {
+    const eventGoal = defineConfig({
+      project: 'demo',
+      storage: { mode: 'self', endpoint: '/api/splithub' },
+      experiments: { player: { kind: 'component', status: 'running', variants: { control: 1, big: 1 }, goal: 'Video Played' } },
+    });
+    expect(eventGoal.goals).toEqual([expect.objectContaining({ key: 'video-played', type: 'event', event: 'Video Played' })]);
+    const store = createMemoryStore();
+    const handler = createSplitHubHandler({ config: eventGoal, store });
+    for (let i = 0; i < 20; i++) {
+      const sent: EventBatch[] = [];
+      const client = createClient(eventGoal, { visitorId: `v_${i}`, sessionId: `s_${i}`, transport: { send: (b) => void sent.push(b) } });
+      client.variant('player');
+      if (i % 2 === 0) client.track('Video Played');
+      await client.flush();
+      for (const b of sent) expect((await post(handler, b)).status).toBe(202);
+    }
+    const body = (await (await handler(new Request('http://x/api/splithub/results/player'))).json()) as { variants: Array<{ visitors: number; conversions: number }> };
+    expect(body.variants.reduce((s, v) => s + v.visitors, 0)).toBe(20);
+    expect(body.variants.reduce((s, v) => s + v.conversions, 0)).toBe(10);
+  });
+
   it('counts a visitor once, in the variant of their earliest exposure', async () => {
     const store = createMemoryStore();
     const ev = (id: string, e: Partial<StoredEvent> & Pick<StoredEvent, 'type' | 'visitorId' | 'ts'>): StoredEvent => ({
@@ -95,7 +117,7 @@ describe('createSplitHubHandler', () => {
   it('rejects bad input and wrong project', async () => {
     const handler = createSplitHubHandler({ config, store: createMemoryStore() });
     expect((await post(handler, { project: 'other', events: [] })).status).toBe(400);
-    expect((await post(handler, { project: 'demo', events: [{ type: 'nope' }] })).status).toBe(400);
+    expect((await post(handler, { project: 'demo', events: 'nope' })).status).toBe(400);
     expect((await handler(new Request('http://x/api/splithub/results/missing'))).status).toBe(404);
   });
 

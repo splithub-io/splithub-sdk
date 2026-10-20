@@ -1,4 +1,4 @@
-import { countsFromRow, variantCountsSql, type ExperimentSummary, type Store, type StoredEvent } from '@splithub/node';
+import { countsFromRow, propertyCountsFromRows, propertyCountsSql, storedEventFromRow, variantCountsSql, type ExperimentSummary, type Store, type StoredEvent } from '@splithub/node';
 
 /** Structural subset of Cloudflare's D1Database so this package has no Workers type dependency. */
 export interface D1Like {
@@ -78,6 +78,8 @@ export function d1Store(db: D1Like, options: D1StoreOptions): Store {
   // The shared attribution rule from @splithub/node (first exposure, skew, daily goal cap).
   const attribution = variantCountsSql({ dialect: 'sqlite', table, projectColumn: 'project_id' });
 
+  const prop = propertyCountsSql({ dialect: 'sqlite', table, projectColumn: 'project_id' });
+
   const summarySql = `
     SELECT experiment, COUNT(*) AS exposures, COUNT(DISTINCT visitor_id) AS visitors,
            MIN(ts) AS firstExposureAt, MAX(ts) AS lastExposureAt
@@ -100,6 +102,17 @@ export function d1Store(db: D1Like, options: D1StoreOptions): Store {
     async variantCounts(experiment, goal) {
       const { results } = await db.prepare(attribution.sql).bind(...attribution.bind({ experiment, goal, project })).all<Record<string, unknown>>();
       return results.map(countsFromRow);
+    },
+    async propertyCounts(property, since, until) {
+      const [totals, events] = await Promise.all([
+        db.prepare(prop.totals.sql).bind(...prop.totals.bind({ project, property, since, until })).all<Record<string, unknown>>(),
+        db.prepare(prop.events.sql).bind(...prop.events.bind({ project, property, since, until })).all<Record<string, unknown>>(),
+      ]);
+      return propertyCountsFromRows(totals.results[0], events.results);
+    },
+    async propertyEvents(property, { before, limit }) {
+      const { results } = await db.prepare(prop.rows.sql).bind(...prop.rows.bind({ project, property, before, limit })).all<Record<string, unknown>>();
+      return results.map(storedEventFromRow);
     },
     async summaries() {
       const { results } = await db.prepare(summarySql).bind(project).all<Record<string, unknown>>();

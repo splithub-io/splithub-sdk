@@ -152,7 +152,7 @@ jobs:
             number="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$ISSUE_TITLE in:title" --json number,title --jq '.[] | [.number, .title] | @tsv' | awk -F '\\t' -v t="$ISSUE_TITLE" '$2 == t { print $1; exit }')"
           fi
           if [ -z "$number" ]; then
-            url="$(gh issue create --repo "$GITHUB_REPOSITORY" --title "$ISSUE_TITLE" --body 'A/B test results from SplitHub, refreshed by the SplitHub workflow.')"
+            url="$(gh issue create --repo "$GITHUB_REPOSITORY" --title "$ISSUE_TITLE" --body 'Experiment results from SplitHub, refreshed by the SplitHub workflow.')"
             number="\${url##*/}"
           fi
           id="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$number/comments" --jq '.[] | [.id, (.body | split("\\n") | .[0])] | @tsv' | awk -F '\\t' -v m="$marker" '$2 == m { print $1; exit }')"

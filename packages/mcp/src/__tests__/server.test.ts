@@ -50,7 +50,15 @@ describe('@splithub/mcp', () => {
   it('lists the tools', async () => {
     expect(existsSync(dist)).toBe(true);
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(['splithub_create_experiment', 'splithub_doctor', 'splithub_init', 'splithub_login', 'splithub_plan', 'splithub_projects', 'splithub_pull', 'splithub_push', 'splithub_refs', 'splithub_remove', 'splithub_results', 'splithub_review', 'splithub_set_status', 'splithub_ship', 'splithub_status', 'splithub_whoami'].sort());
+    expect(tools.map((t) => t.name).sort()).toEqual(['splithub_analytics', 'splithub_analytics_events', 'splithub_analytics_funnel', 'splithub_analytics_paths', 'splithub_analytics_realtime', 'splithub_analytics_retention', 'splithub_analytics_connect', 'splithub_notes', 'splithub_links', 'splithub_alerts', 'splithub_segments', 'splithub_create_experiment', 'splithub_create_property', 'splithub_doctor', 'splithub_domains', 'splithub_experiment_create', 'splithub_experiment_events', 'splithub_experiment_status', 'splithub_property_create', 'splithub_property_status', 'splithub_set_property_status', 'splithub_init', 'splithub_login', 'splithub_plan', 'splithub_projects', 'splithub_pull', 'splithub_push', 'splithub_refs', 'splithub_remove', 'splithub_results', 'splithub_review', 'splithub_set_status', 'splithub_ship', 'splithub_status', 'splithub_whoami'].sort());
+    // The old names stay for one release and point at the new ones.
+    for (const [old, now] of [['splithub_create_experiment', 'splithub_experiment_create'], ['splithub_set_status', 'splithub_experiment_status'], ['splithub_create_property', 'splithub_property_create'], ['splithub_set_property_status', 'splithub_property_status']]) {
+      const alias = tools.find((t) => t.name === old)!;
+      expect(alias.description).toBe(`Old name of ${now}, kept for one release: call ${now} instead.`);
+      expect(alias.inputSchema).toEqual(tools.find((t) => t.name === now)!.inputSchema);
+    }
+    const propertyStatus = tools.find((t) => t.name === 'splithub_property_status')!.inputSchema as { properties: { status: { enum: string[] } } };
+    expect(propertyStatus.properties.status.enum).toEqual(['running', 'paused', 'archived', 'restored', 'removed']);
   });
 
   it('sets up a project, creates an experiment and reads it back', async () => {
@@ -61,11 +69,15 @@ describe('@splithub/mcp', () => {
     expect(existsSync(join(dir, '.claude', 'skills', 'ab-testing', 'SKILL.md'))).toBe(true);
     expect(existsSync(join(dir, '.mcp.json'))).toBe(true);
 
-    const created = await client.callTool({ name: 'splithub_create_experiment', arguments: { id: 'hero-title', kind: 'value', variants: ['control', 'bold'], values: { control: 'Old', bold: 'New' }, goal: 'signup' } });
+    const created = await client.callTool({ name: 'splithub_experiment_create', arguments: { id: 'hero-title', kind: 'value', variants: ['control', 'bold'], values: { control: 'Old', bold: 'New' }, goal: 'signup' } });
     expect(created.isError).toBeFalsy();
     expect(readFileSync(join(dir, 'splithub.config.ts'), 'utf8')).toContain("'hero-title'");
 
-    const paused = await client.callTool({ name: 'splithub_set_status', arguments: { experiment: 'hero-title', status: 'running' } });
+    const played = await client.callTool({ name: 'splithub_create_experiment', arguments: { id: 'player', kind: 'value', variants: ['control', 'big'], values: { control: 'S', big: 'L' }, goal: 'Video Played' } });
+    expect(played.isError).toBeFalsy();
+    expect(JSON.parse((played.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ experiment: 'player', goal: 'video-played' });
+
+    const paused = await client.callTool({ name: 'splithub_experiment_status', arguments: { experiment: 'hero-title', status: 'running' } });
     expect(JSON.parse((paused.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ experiment: 'hero-title', status: 'running' });
 
     const refs = await client.callTool({ name: 'splithub_refs', arguments: { experiment: 'hero-title' } });
@@ -80,6 +92,19 @@ describe('@splithub/mcp', () => {
     expect(missing.isError).toBe(true);
     expect(JSON.parse((missing.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ code: 'EXPERIMENT_NOT_FOUND', next: expect.stringContaining('splithub_status') });
 
+    const property = await client.callTool({ name: 'splithub_property_create', arguments: { id: 'site', name: 'Site', goals: ['signup'] } });
+    expect(property.isError).toBeFalsy();
+    expect(readFileSync(join(dir, 'splithub.config.ts'), 'utf8')).toContain(`site: { name: 'Site', goals: ['signup'] }`);
+    const pausedProperty = await client.callTool({ name: 'splithub_property_status', arguments: { property: 'site', status: 'paused' } });
+    expect(JSON.parse((pausedProperty.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ property: 'site', status: 'paused' });
+    // The old name runs the same command.
+    const resumed = await client.callTool({ name: 'splithub_set_property_status', arguments: { property: 'site', status: 'running' } });
+    expect(JSON.parse((resumed.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ property: 'site', status: 'running' });
+    // Archiving is a SplitHub Cloud state; a self-hosted project pauses instead.
+    const archived = await client.callTool({ name: 'splithub_property_status', arguments: { property: 'site', status: 'archived' } });
+    expect(archived.isError).toBe(true);
+    expect(JSON.parse((archived.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ code: 'NOT_CLOUD' });
+
     const plan = await client.callTool({ name: 'splithub_plan', arguments: { baseline: 0.05, mde: 0.2 } });
     expect(JSON.parse((plan.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ perVariant: 8000, total: 16000 });
   }, 60_000);
@@ -88,5 +113,29 @@ describe('@splithub/mcp', () => {
     const r = await client.callTool({ name: 'splithub_push', arguments: {} });
     expect(r.isError).toBe(true);
     expect(JSON.parse((r.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ code: 'NOT_CLOUD' });
+    const funnel = await client.callTool({ name: 'splithub_analytics_funnel', arguments: { property: 'site', steps: ['page:/', 'event:Signup'] } });
+    expect(funnel.isError).toBe(true);
+    expect(JSON.parse((funnel.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ code: 'NOT_CLOUD' });
+    for (const [name, args] of [['splithub_notes', { action: 'add', text: 'Launch' }], ['splithub_links', {}], ['splithub_alerts', { condition: 'usage', every: 1000 }]] as const) {
+      const r2 = await client.callTool({ name, arguments: args });
+      expect(r2.isError).toBe(true);
+      expect(JSON.parse((r2.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ code: 'NOT_CLOUD', next: expect.stringContaining('notes, links and alerts') });
+    }
+    // Slices, views and raw experiment events are cloud reports too; the plain results stay raw counts.
+    for (const [name, args] of [['splithub_results', { experiment: 'hero-title', filters: { country: 'DE' } }], ['splithub_results', { experiment: 'hero-title', by: 'country' }], ['splithub_results', { experiment: 'hero-title', events: true }], ['splithub_experiment_events', { experiment: 'hero-title' }]] as const) {
+      const r3 = await client.callTool({ name, arguments: args });
+      expect(r3.isError).toBe(true);
+      expect(JSON.parse((r3.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ code: 'NOT_CLOUD', next: expect.stringContaining('Experiment slices') });
+    }
+  }, 30_000);
+
+  it('sets up analytics in the app with splithub_analytics_connect', async () => {
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    writeFileSync(join(dir, 'src', 'main.tsx'), `createRoot(el).render(<SplitHubProvider config={config}><App /></SplitHubProvider>);\n`);
+    const r = await client.callTool({ name: 'splithub_analytics_connect', arguments: { name: 'Docs' } });
+    expect(r.isError).toBeFalsy();
+    const out = JSON.parse((r.content as Array<{ text: string }>)[0]!.text) as { property: string; wired: { status: string } };
+    expect(out).toMatchObject({ created: true, wired: { status: 'added', file: 'src/main.tsx' } });
+    expect(readFileSync(join(dir, 'src', 'main.tsx'), 'utf8')).toContain(`property="${out.property}"`);
   }, 30_000);
 });

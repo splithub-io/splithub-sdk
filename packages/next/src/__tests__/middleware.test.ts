@@ -119,13 +119,14 @@ describe('splithubMiddleware', () => {
     expect(vid).not.toBe('');
     fetchMock.mockClear(); // the probe above already fired one exposure
     const { event, waits } = fakeEvent();
-    const res = await mw(new NextRequest('http://localhost/?utm=1', { headers: { cookie: `sh_vid=${vid}` } }), event);
+    const res = await mw(new NextRequest('http://localhost/?utm=1', { headers: { cookie: `sh_vid=${vid}`, referer: 'https://www.google.com/search?q=x' } }), event);
     expect(res.headers.get('x-middleware-rewrite')).toBe('http://localhost/home-v2?utm=1');
     expect(res.cookies.get('sh_x_landing')?.value).toBe('v2');
     expect(waits).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, { body: string }])[1].body) as { events: Array<{ exp: string; var: string }> };
-    expect(body.events[0]).toMatchObject({ exp: 'landing', var: 'v2' });
+    // The page request's Referer, origin only: the ingest only sees this server.
+    expect(body.events[0]).toMatchObject({ exp: 'landing', var: 'v2', ref: 'https://www.google.com' });
 
     // second request with the exposure cookie: no new event
     const again = await mw(new NextRequest('http://localhost/', { headers: { cookie: `sh_vid=${vid}; sh_x_landing=v2` } }), event);

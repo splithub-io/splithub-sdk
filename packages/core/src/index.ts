@@ -1,12 +1,13 @@
-export { defineConfig, isSplitHubConfig, getExperiment, ConfigError, mvtVariants, MVT_MAX_FACTORS, MVT_MAX_LEVELS, MVT_MAX_COMBINATIONS, HOLDOUT_KEY, LAYER_BUCKETS, holdoutExperiment, measuredGoals } from './config';
+export { defineConfig, isSplitHubConfig, getExperiment, ConfigError, mvtVariants, MVT_MAX_FACTORS, MVT_MAX_LEVELS, MVT_MAX_COMBINATIONS, HOLDOUT_KEY, LAYER_BUCKETS, holdoutExperiment, measuredGoals, normalizeProperty, pickProperty, EVENT_NAME_PATTERN, PROPERTY_KEY_PATTERN, newPropertyId, eventKey, goalKeyFor } from './config';
 export { assign, pickVariant, controlVariant, parseForceParam, inSchedule, isActive, isDevDraft, isDevEnvironment, holdoutGroup, layerBucket, inLayer, countsForHoldout } from './assignment';
 export { devNote, explainAssignment, resetDevNotes } from './dev';
+export { resetAnalyticsClaims } from './shared';
 export type { AssignOptions } from './assignment';
 export { murmur3, hashToUnit } from './hash';
 export { newId, newVisitorId, newSessionId } from './ids';
 export { getOrCreateVisitorId, getOrCreateSessionId, hasVisitorId, isBrowser } from './visitor';
 export { runFlow, validateFlow, evaluateCondition, matchConditions, contextValue, browserContext, parseUserAgent, isBot, isCrawler, parseCookies, TARGET_FIELDS, TARGET_OPS, KEYED_FIELDS } from './targeting';
-export { matchPath, normalizePath, redirectTarget } from './paths';
+export { matchPath, normalizePath, redirectTarget, referrerOrigin } from './paths';
 export { decideRedirect } from './redirect';
 export type { RedirectDecision } from './redirect';
 export type { FlowOutcome } from './targeting';

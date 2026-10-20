@@ -1,19 +1,20 @@
 // Store templates for self-hosted mode: `splithub init --mode self --db postgres|mysql|custom`
 // writes splithub/store.ts from one of these. Each implements the Store interface
-// from @splithub/node (insertEvents, variantCounts, summaries) with the same
+// from @splithub/node (insertEvents, variantCounts, summaries, and the raw analytics
+// reads propertyCounts / propertyEvents) with the same
 // attribution rule as the cloud, through variantCountsSql from @splithub/node.
 
 export type DbKind = 'sqlite' | 'postgres' | 'mysql' | 'custom';
 export const DB_KINDS: DbKind[] = ['sqlite', 'postgres', 'mysql', 'custom'];
 
-export const PG_STORE = `import { countsFromRow, variantCountsSql, type ExperimentSummary, type Store, type StoredEvent, type StoreVariantCounts } from '@splithub/node';
+export const PG_STORE = `import { countsFromRow, propertyCountsFromRows, propertyCountsSql, storedEventFromRow, variantCountsSql, type ExperimentSummary, type PropertyCounts, type Store, type StoredEvent, type StoreVariantCounts } from '@splithub/node';
 import { Pool } from 'pg';
 
 // SplitHub events in your Postgres. Run once (or add to your migrations):
 export const SCHEMA_SQL = \`
 CREATE TABLE IF NOT EXISTS splithub_events (
   id          text PRIMARY KEY,
-  type        text NOT NULL,            -- exposure | goal
+  type        text NOT NULL,            -- exposure | goal | page | event | engage | identify (analytics rows: experiment = property, goal = event name)
   experiment  text,
   variant     text,
   goal        text,
@@ -34,6 +35,9 @@ CREATE INDEX IF NOT EXISTS splithub_events_goal ON splithub_events (type, goal, 
 
 // The attribution rule shared by every SplitHub store (first exposure, 60 s clock skew, 50 goals per visitor and day).
 const counts = variantCountsSql({ dialect: 'postgres', table: 'splithub_events' });
+// Analytics properties: pageviews, events, engagement and identify rows share the table; raw counts
+// only (users = distinct ids sent with identify).
+const prop = propertyCountsSql({ dialect: 'postgres', table: 'splithub_events' });
 
 export function pgStore(pool: Pool = new Pool({ connectionString: process.env.DATABASE_URL })): Store {
   return {
@@ -62,19 +66,27 @@ export function pgStore(pool: Pool = new Pool({ connectionString: process.env.DA
       );
       return r.rows.map((x) => ({ experiment: String(x.experiment), exposures: Number(x.exposures), visitors: Number(x.visitors), firstExposureAt: x.first_ts == null ? null : Number(x.first_ts), lastExposureAt: x.last_ts == null ? null : Number(x.last_ts) }));
     },
+    async propertyCounts(property: string, since: number, until?: number): Promise<PropertyCounts> {
+      const [totals, events] = await Promise.all([pool.query(prop.totals.sql, prop.totals.bind({ property, since, until })), pool.query(prop.events.sql, prop.events.bind({ property, since, until }))]);
+      return propertyCountsFromRows(totals.rows[0], events.rows);
+    },
+    async propertyEvents(property: string, { before, limit }: { before: number; limit: number }): Promise<StoredEvent[]> {
+      const r = await pool.query(prop.rows.sql, prop.rows.bind({ property, before, limit }));
+      return r.rows.map(storedEventFromRow);
+    },
     close: () => pool.end(),
   };
 }
 `;
 
-export const MYSQL_STORE = `import { countsFromRow, variantCountsSql, type ExperimentSummary, type Store, type StoredEvent, type StoreVariantCounts } from '@splithub/node';
+export const MYSQL_STORE = `import { countsFromRow, propertyCountsFromRows, propertyCountsSql, storedEventFromRow, variantCountsSql, type ExperimentSummary, type PropertyCounts, type Store, type StoredEvent, type StoreVariantCounts } from '@splithub/node';
 import mysql, { type Pool } from 'mysql2/promise';
 
 // SplitHub events in your MySQL / MariaDB / PlanetScale. Run once (or add to your migrations):
 export const SCHEMA_SQL = \`
 CREATE TABLE IF NOT EXISTS splithub_events (
   id          VARCHAR(64) PRIMARY KEY,
-  type        VARCHAR(16) NOT NULL,
+  type        VARCHAR(16) NOT NULL,     -- exposure | goal | page | event | engage | identify
   experiment  VARCHAR(64) NULL,
   variant     VARCHAR(64) NULL,
   goal        VARCHAR(64) NULL,
@@ -95,6 +107,9 @@ CREATE TABLE IF NOT EXISTS splithub_events (
 
 // The attribution rule shared by every SplitHub store (first exposure, 60 s clock skew, 50 goals per visitor and day).
 const counts = variantCountsSql({ dialect: 'mysql', table: 'splithub_events' });
+// Analytics properties: pageviews, events, engagement and identify rows share the table; raw counts
+// only (users = distinct ids sent with identify).
+const prop = propertyCountsSql({ dialect: 'mysql', table: 'splithub_events' });
 
 export function mysqlStore(pool: Pool = mysql.createPool(process.env.DATABASE_URL ?? '')): Store {
   return {
@@ -118,6 +133,14 @@ export function mysqlStore(pool: Pool = mysql.createPool(process.env.DATABASE_UR
       );
       return (rows as Array<Record<string, unknown>>).map((x) => ({ experiment: String(x.experiment), exposures: Number(x.exposures), visitors: Number(x.visitors), firstExposureAt: x.first_ts == null ? null : Number(x.first_ts), lastExposureAt: x.last_ts == null ? null : Number(x.last_ts) }));
     },
+    async propertyCounts(property: string, since: number, until?: number): Promise<PropertyCounts> {
+      const [[totals], [events]] = await Promise.all([pool.query(prop.totals.sql, prop.totals.bind({ property, since, until })), pool.query(prop.events.sql, prop.events.bind({ property, since, until }))]);
+      return propertyCountsFromRows((totals as Array<Record<string, unknown>>)[0], events as Array<Record<string, unknown>>);
+    },
+    async propertyEvents(property: string, { before, limit }: { before: number; limit: number }): Promise<StoredEvent[]> {
+      const [rows] = await pool.query(prop.rows.sql, prop.rows.bind({ property, before, limit }));
+      return (rows as Array<Record<string, unknown>>).map(storedEventFromRow);
+    },
     close: () => pool.end(),
   };
 }
@@ -138,6 +161,11 @@ export const CUSTOM_STORE = `import { attributeVariants, type ExperimentSummary,
  * Columns worth keeping: id (unique, dedupe on it), type, experiment, variant,
  * goal, visitor_id, session_id, ts, url, props (json), received_at, host,
  * country, device, browser.
+ * Analytics (optional): \`page\`, \`event\`, \`engage\` and \`identify\` rows carry the
+ * property key in \`experiment\` (and the event name in \`goal\`); engage props are
+ * { ms, scroll }, identify props { uid, traits }. Store them like the others and add
+ * propertyCounts(property, since, until?) (or run propertyCountsSql, which also counts users)
+ * to read them with \`splithub analytics\`.
  */
 export function customStore(): Store {
   return {

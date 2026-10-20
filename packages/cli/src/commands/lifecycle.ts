@@ -34,7 +34,7 @@ export async function lifecycle(command: string, id: string | undefined, flags: 
   const live = before.storage.mode === 'cloud' ? await applyLiveStatus(flags, id, status) : 'skipped';
 
   // A finished test keeps its numbers, but every variant is still in the code until someone decides.
-  const next = status === 'finished' ? `Read the verdict (npx splithub results ${id}), decide which variant to keep, then run npx splithub ship ${id} --keep <variant> to remove the test from the code and the config.` : null;
+  const next = status === 'finished' ? `Read the verdict (npx splithub results ${id}), decide which variant to keep, then run npx splithub ship ${id} --keep <variant> to remove the experiment from the code and the config.` : null;
   if (flags.json) printJson({ experiment: id, status, previous: current.status, configFile: file, live, ...(next ? { next } : {}) });
   else {
     console.log(`${c.green('✔')} ${c.bold(id)} → ${status} ${c.dim(`(${file})`)}`);

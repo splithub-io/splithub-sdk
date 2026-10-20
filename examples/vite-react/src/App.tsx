@@ -6,7 +6,7 @@ function HeroControl() {
   return (
     <section className="control">
       <h1>{title}</h1>
-      <p>SplitHub runs A/B tests inside your React app. No flicker, no third-party script, your data stays in your database.</p>
+      <p>SplitHub runs experiments inside your React app. No flicker, no third-party script, your data stays in your database.</p>
       <button onClick={() => track('signup')}>Get started</button>
     </section>
   );

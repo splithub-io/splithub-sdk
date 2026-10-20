@@ -1,4 +1,4 @@
-import type { Experiment, ExperimentStatus, Goal, Holdout, SplitHubConfig, TargetingContext } from './types';
+import type { Experiment, ExperimentStatus, Goal, Holdout, Property, PropertyStatus, SplitHubConfig, TargetingContext } from './types';
 
 /**
  * Remote overrides let the dashboard, the CLI or an agent pause an experiment,
@@ -23,6 +23,10 @@ export interface RemoteOverrides {
   added?: Experiment[];
   /** Goals declared in the dashboard (hosted config). */
   goals?: Goal[];
+  /** Analytics property status set from the dashboard or the CLI, by key. */
+  properties?: Record<string, { status?: PropertyStatus }>;
+  /** Analytics properties created in the dashboard that are not in the config file. */
+  addedProperties?: Property[];
   /**
    * Holdout and layer seeds of the hosted config (sites on sh.js have no config file).
    * A config file's own `holdout` / `layers` win over these.
@@ -64,13 +68,24 @@ export function applyRemoteOverrides(config: SplitHubConfig, overrides: RemoteOv
   const addedGoals = (overrides.goals ?? []).filter((g) => g && typeof g.key === 'string' && !knownGoals.has(g.key));
   const holdout = !config.holdout && validHoldout(overrides.holdout) ? overrides.holdout : null;
   const layers = overrides.layers && typeof overrides.layers === 'object' ? { ...overrides.layers, ...(config.layers ?? {}) } : null;
-  if (Object.keys(patches).length === 0 && added.length === 0 && addedGoals.length === 0 && !holdout && !layers) return config;
+  const propertyPatches = overrides.properties ?? {};
+  const knownProps = new Set((config.properties ?? []).map((p) => p.key));
+  const addedProps = (overrides.addedProperties ?? []).filter((p) => p && typeof p.key === 'string' && !knownProps.has(p.key));
+  const propsChanged = Object.keys(propertyPatches).length > 0 || addedProps.length > 0;
+  if (Object.keys(patches).length === 0 && added.length === 0 && addedGoals.length === 0 && !holdout && !layers && !propsChanged) return config;
+  const properties = propsChanged
+    ? [...(config.properties ?? []), ...addedProps.map((p) => ({ ...p, goals: Array.isArray(p.goals) ? p.goals : [], origin: 'dashboard' as const }))].map((p) => {
+        const status = propertyPatches[p.key]?.status;
+        return status === 'running' || status === 'paused' ? { ...p, status } : p;
+      })
+    : config.properties;
   const merged = [...config.experiments, ...added.map((e) => ({ ...e, origin: 'dashboard' as const }))];
   return {
     ...config,
     ...(holdout ? { holdout } : {}),
     ...(layers ? { layers } : {}),
     goals: addedGoals.length ? [...config.goals, ...addedGoals] : config.goals,
+    ...(properties ? { properties } : {}),
     experiments: merged.map((e) => {
       const o = patches[e.key];
       return o ? applyToExperiment(e, o) : e;

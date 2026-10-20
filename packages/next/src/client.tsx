@@ -4,7 +4,7 @@ import type { RemoteOverrides } from '@splithub/core';
 import { SplitHubProvider, useSplitHub, type SplitHubProviderProps } from '@splithub/react';
 import { useEffect } from 'react';
 
-export { SplitHubProvider, useSplitHub, Experiment, Variant, useVariant, useValue, useTrack, usePageview } from '@splithub/react';
+export { SplitHubProvider, useSplitHub, Experiment, Variant, useVariant, useValue, useTrack, usePageview, useIdentify } from '@splithub/react';
 
 export interface SplitHubNextProviderProps extends SplitHubProviderProps {
   /** Overrides the server applied (`(await getSplitHub(config)).overrides`), so client and server agree. */

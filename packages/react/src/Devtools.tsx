@@ -116,9 +116,9 @@ export function SplitHubDevtools({ client }: { client: SplitHubClient }) {
 
 const btn: React.CSSProperties = { background: '#18181b', color: '#e4e4e7', border: '1px solid #3f3f46', borderRadius: 6, padding: '2px 6px', cursor: 'pointer', fontSize: 11 };
 const REASONS: Partial<Record<string, string>> = {
-  holdout: 'This visitor is in the holdout: every test shows its control.',
-  layer: "Another test of the same layer owns this visitor's bucket.",
-  outside_traffic: 'Outside the share of traffic the test takes.',
+  holdout: 'This visitor is in the holdout: every experiment shows its control.',
+  layer: "Another experiment of the same layer owns this visitor's bucket.",
+  outside_traffic: 'Outside the share of traffic the experiment takes.',
   targeting: 'The targeting flow skipped this visitor.',
 };
 const COLORS: Record<string, string> = { assign: '#34d399', exposure: '#60a5fa', goal: '#fbbf24', pageview: '#a78bfa', remote: '#f472b6', redirect: '#fb923c', info: '#a1a1aa' };

@@ -60,16 +60,28 @@ export function useValue<T = unknown>(experimentKey: string): T {
   return value;
 }
 
-/** `track('signup')` or `track('checkout', { revenue: 49 })`. */
-export function useTrack(): (goal: string, props?: Record<string, unknown>) => void {
+/**
+ * `track('signup')`, `track('Video Played', { id: 3 })`, `track('checkout', { revenue: 49 })`: an event,
+ * any name. It reaches the analytics property and converts experiments whose goal it is.
+ */
+export function useTrack(): (name: string, props?: Record<string, unknown>) => void {
   const client = useSplitHub();
-  return useCallback((goal, props) => client.track(goal, props), [client]);
+  return useCallback((name, props) => client.track(name, props), [client]);
 }
 
-/** Call on route change in SPAs so pageview goals fire for client-side navigations. */
+/** Call on route change in SPAs so pageview goals fire and the analytics property records the page. */
 export function usePageview(path: string): void {
   const client = useSplitHub();
   useEffect(() => {
     client.pageview(path);
   }, [client, path]);
+}
+
+/**
+ * `identify('user_42', { plan: 'pro' })`: ties this visitor to your user id for the analytics
+ * property. Remembered in the browser and re-sent once per session; `identify(null)` on sign-out.
+ */
+export function useIdentify(): (uid: string | null, traits?: Record<string, unknown>) => void {
+  const client = useSplitHub();
+  return useCallback((uid, traits) => client.identify(uid, traits), [client]);
 }

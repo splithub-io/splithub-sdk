@@ -52,8 +52,8 @@ export function resolveTarget(flags: Record<string, unknown>, project?: ProjectI
 }
 
 /**
- * Readable message from an API error body. Most routes answer `{ error: 'text' }`; the auth layer
- * answers `{ success: false, error: { code, message } }`. Without this the CLI printed "[object Object]".
+ * Readable message from an API error body. /v1 answers `{ error: 'text', code, hint? }`; servers before
+ * 0.4.0 sent auth errors as `{ success: false, error: { code, message } }`, still read here.
  */
 export function apiErrorMessage(status: number, body: unknown, fallback: string): string {
   const error = (body as { error?: unknown } | null)?.error;
@@ -64,15 +64,20 @@ export function apiErrorMessage(status: number, body: unknown, fallback: string)
 /** CliError for a failed API response: 401 → NOT_LOGGED_IN, 404 on an experiment → EXPERIMENT_NOT_FOUND. The server's `hint` wins over ours. */
 export function apiError(status: number, body: unknown, fallback: string, experiment?: string): CliError {
   const message = apiErrorMessage(status, body, fallback);
-  const b = body as { code?: unknown; needed?: unknown; hint?: unknown } | null;
+  const b = body as { code?: unknown; needed?: unknown; scope?: unknown; hint?: unknown } | null;
   const serverHint = typeof b?.hint === 'string' && b.hint ? b.hint : undefined;
   if (status === 401) return new CliError('NOT_LOGGED_IN', message, serverHint ?? 'Run npx splithub login (or set SPLITHUB_API_KEY), then retry.');
-  if (status === 403 && b?.code === 'insufficient_scope') return new CliError('INSUFFICIENT_SCOPE', message, serverHint ?? `This API key lacks the "${typeof b.needed === 'string' ? b.needed : 'write'}" scope. Create one with it in the dashboard (Settings, API keys) or run npx splithub login --yes.`);
+  if (status === 403 && b?.code === 'insufficient_scope') {
+    // Older servers sent only `needed` (read | write); newer ones name the area too (`notes:write`).
+    const scope = typeof b.scope === 'string' && b.scope ? b.scope : typeof b.needed === 'string' ? b.needed : 'write';
+    return new CliError('INSUFFICIENT_SCOPE', message, serverHint ?? `This API key lacks the "${scope}" scope. Create one with it in the dashboard (Settings, API keys) or run npx splithub login --yes.`, scope);
+  }
+  if (status === 402 && b?.code === 'pro_required') return new CliError('PRO_REQUIRED', message, serverHint ?? 'Alert rules run on Pro: upgrade in the dashboard (Billing), then turn the rule on.');
   if (status === 404 && experiment) return new CliError('EXPERIMENT_NOT_FOUND', message, serverHint ?? 'Check the id with npx splithub status. In cloud mode, push the config first.');
   return new CliError('API_ERROR', message, serverHint);
 }
 
-async function request<T>(target: Target, path: string, init: RequestInit = {}, experiment?: string): Promise<T> {
+export async function request<T>(target: Target, path: string, init: RequestInit = {}, experiment?: string): Promise<T> {
   const headers: Record<string, string> = { ...((init.headers as Record<string, string> | undefined) ?? {}) };
   if (target.token) headers.authorization = `Bearer ${target.token}`;
   if (init.body) headers['content-type'] = 'application/json';
@@ -86,6 +91,28 @@ async function request<T>(target: Target, path: string, init: RequestInit = {}, 
   const body: unknown = await res.json().catch(() => ({}));
   if (!res.ok) throw apiError(res.status, body, `${target.url}${path} responded ${res.status}`, experiment);
   return body as T;
+}
+
+/** A text answer (CSV exports); errors still arrive as JSON. */
+export async function requestText(target: Target, path: string): Promise<string> {
+  const headers: Record<string, string> = target.token ? { authorization: `Bearer ${target.token}` } : {};
+  let res: Response;
+  try {
+    res = await fetch(`${target.url}${path}`, { headers });
+  } catch (error) {
+    throw new CliError('UNREACHABLE', `Can't reach ${target.url}: ${error instanceof Error ? error.message : String(error)}.`, 'Check your connection, or set --api / SPLITHUB_API.');
+  }
+  const text = await res.text();
+  if (!res.ok) {
+    let body: unknown = {};
+    try {
+      body = JSON.parse(text);
+    } catch {
+      // not JSON
+    }
+    throw apiError(res.status, body, `${target.url}${path} responded ${res.status}`);
+  }
+  return text;
 }
 
 /** Cloud target that must carry an API key. */
@@ -209,6 +236,8 @@ export interface CloudResults {
   voice?: Voice | null;
   display?: Display;
   factors?: FactorResult[];
+  /** Present when the results are a slice: first-exposure days and visitor filters. */
+  scope?: { filtered: boolean; range: { from: string; to: string } | null; filters: Record<string, string | string[]>; note?: string };
   analysis?: undefined;
 }
 
@@ -232,9 +261,25 @@ export type { RawResults, RawStatusRow };
 export type Analysis = RawResults['analysis'];
 export type Results = CloudResults | RawResults;
 export type StatusRow = CloudStatusRow | (RawStatusRow & { headline?: undefined; verdict?: undefined; sample?: undefined; stars?: undefined; daysToVerdict?: undefined; display?: undefined });
+/** One analytics property in `GET /v1/status` (SplitHub Cloud): its last 7 days against the 7 before. */
+export interface StatusProperty {
+  property: string;
+  name: string;
+  status: string;
+  visitors: number;
+  previousVisitors: number;
+  /** Relative change; null when the 7 days before had no visitors. */
+  change: number | null;
+  pageviews: number;
+  conversions: Array<{ goal: string; conversions: number; change: number | null }>;
+}
+
 export interface StatusData {
   project: string;
   experiments: StatusRow[];
+  /** SplitHub Cloud: analytics properties (archived left out); older servers and self-hosted omit it. */
+  properties?: StatusProperty[];
+  propertiesRange?: { from: string; to: string };
   /** Present (available: false) on self-hosted endpoints. */
   analysis?: Analysis;
 }

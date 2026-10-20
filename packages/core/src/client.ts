@@ -1,8 +1,9 @@
 import { assign, countsForHoldout, holdoutGroup, isDevEnvironment, parseForceParam } from './assignment';
 import { debugLog, isDebug } from './debug';
 import { devNote, explainAssignment } from './dev';
-import { getExperiment, HOLDOUT_KEY, isSplitHubConfig } from './config';
+import { goalKeyFor, EVENT_NAME_PATTERN, getExperiment, HOLDOUT_KEY, isSplitHubConfig, pickProperty } from './config';
 import { EventQueue, createFetchTransport, type Transport } from './events';
+import { murmur3 } from './hash';
 import { newId } from './ids';
 import {
   applyRemoteOverrides,
@@ -14,6 +15,7 @@ import {
   type RemoteOverrides,
 } from './remote';
 import { matchPath } from './paths';
+import { claimAnalytics, releaseAnalytics } from './shared';
 import { browserContext } from './targeting';
 import type { Assignment, Experiment, SplitHubConfig, TargetingContext, Variant } from './types';
 import {
@@ -22,7 +24,10 @@ import {
   hasVisitorId,
   isBrowser,
   persistExposureSet,
+  readStored,
   sessionExposureSet,
+  sessionReferrer,
+  writeStored,
 } from './visitor';
 
 // The drop-in script's build defines this as true, so `typeof` folds and the development
@@ -35,6 +40,14 @@ export const SDK_VERSION = '0.1.0';
 export const REMOTE_WAIT_MS = 400;
 const DEV_NOTE = 'Development sends nothing to the cloud, so your own visits never reach the results. Deployed builds send as usual.';
 export const CLOUD_ENDPOINT = 'https://go.splithub.io/v1/events';
+/** How long analytics events wait for overrides that may declare their property (a property made in the dashboard). */
+export const PROPERTY_WAIT_MS = 5000;
+/** Goal and event props larger than this (as JSON) are trimmed: the ingest refuses them. */
+export const MAX_PROPS_BYTES = 4096;
+const MAX_ENGAGE_MS = 3_600_000;
+/** The app's user id (identify), kept across sessions; re-sent once per session. */
+const UID_KEY = 'sh_uid';
+const UID_SENT_KEY = 'sh_uid_sent';
 
 export interface ClientOptions {
   /** Provide on the server (from the cookie) so SSR and client agree. */
@@ -68,6 +81,11 @@ export interface ClientOptions {
     ttlMs?: number;
     /** First visit (nothing cached): how long to wait for the overrides before deciding from the file. Default 400 ms; 0 decides at once. */
     waitMs?: number;
+    /**
+     * Overrides still on their way (the drop-in script stops waiting for experiments before they arrive).
+     * Analytics events for a property they may declare wait for them, up to 5 s.
+     */
+    arriving?: Promise<RemoteOverrides | null>;
   };
   /**
    * Visitor context for targeting (country, device, UTM ...). In the browser it
@@ -75,6 +93,21 @@ export interface ClientOptions {
    * overrides JSON); on the server pass what you know from the request.
    */
   context?: TargetingContext;
+  /**
+   * Analytics property that receives pageviews and events: its id (`sh-x1h78w`), from
+   * `properties` in the config or from the dashboard. Without it no analytics events are sent.
+   */
+  property?: string | false;
+  /**
+   * Single-page apps: after the first pageview(), report every client-side navigation
+   * (history.pushState / replaceState / back) as a pageview too. Default true in the browser.
+   */
+  trackNavigation?: boolean;
+  /**
+   * Hash routers (`/#/pricing`): report the route after `#` as the page. Default: only when the
+   * path is `/` and the hash starts with `#/`; `false` never, `true` on any path.
+   */
+  trackHash?: boolean;
   onError?: (error: unknown) => void;
 }
 
@@ -102,9 +135,22 @@ export interface SplitHubClient {
   value<T = unknown>(experimentKey: string): T;
   /** Record an exposure explicitly (the React components call this on mount). */
   exposure(experimentKey: string): void;
-  track(goal: string, props?: Record<string, unknown>): void;
-  /** Automatic pageview goals for the current URL. */
+  /**
+   * An event, any name (`track('signup')`, `track('Video Played', { id })`): one row that reaches the
+   * analytics property and converts the experiments whose goal it is (the goal keyed by its slug).
+   * Without a property it goes out as a goal row.
+   */
+  track(name: string, props?: Record<string, unknown>): void;
+  /**
+   * A page view: a `page` event for the analytics property, which also converts the pageview goals
+   * of the URL. Without a property, the goal rows of the URL go out instead.
+   */
   pageview(path?: string): void;
+  /**
+   * Ties this visitor to your user id (1..128 characters) with optional flat traits
+   * (`{ plan: 'pro' }`). Remembered in the browser and re-sent once per session; `null` forgets it.
+   */
+  identify(uid: string | null, traits?: Record<string, unknown>): void;
   /** Bind click goals (`type: 'click'`, CSS selector) to the document. Returns an unbind function. No-op outside the browser. */
   autoGoals(root?: Document | HTMLElement): () => void;
   flush(): Promise<void>;
@@ -131,6 +177,8 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
   let effective = config;
   let geo: RemoteOverrides['ctx'] | undefined;
   let waitFor: Promise<RemoteOverrides | null> | null = null;
+  // The fresh overrides however late they come: they may declare the analytics property.
+  let arriving: Promise<RemoteOverrides | null> | null = options.remote?.arriving ?? null;
   if (options.remote?.overrides) {
     effective = applyRemoteOverrides(config, options.remote.overrides);
     geo = options.remote.overrides.ctx;
@@ -148,6 +196,7 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
         if (fresh) writeRemoteCache(publicKey, fresh);
         return fresh;
       });
+      arriving = fetched;
       // `overrides: null` from the server (Next.js) means the HTML already follows the
       // file: waiting would make the first client render disagree with it.
       const waitMs = options.remote?.waitMs ?? REMOTE_WAIT_MS;
@@ -166,7 +215,9 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
   // On the server without the visitor's id, any variant would be a guess the browser then
   // contradicts; the control is the stable answer until the id is passed in.
   const noVisitor = !browser && !options.visitorId;
-  const sessionId = options.sessionId ?? (browser ? getOrCreateSessionId() : 'server');
+  // On the server each visitor gets a session id of their own, so the cloud never merges
+  // the visits of different visitors that share one server.
+  const sessionId = options.sessionId ?? (browser ? getOrCreateSessionId() : options.visitorId ? `srv_${murmur3(options.visitorId).toString(36)}` : 'server');
   // In the browser the device's own time zone beats the one guessed from the IP.
   const contextFor = (g: RemoteOverrides['ctx'] | undefined): TargetingContext => {
     if (!browser) return { ...(g ?? {}), ...(options.context ?? {}) };
@@ -190,12 +241,24 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
   // The cloud refuses a project with nothing running (429) and drops exposures of drafts.
   // Sending them anyway only fills the console with errors, so they stay local (and visible in debug mode).
   const cloud = config.storage.mode === 'cloud';
-  const cloudIdle = (): boolean => cloud && !config.experiments.some((e) => e.status === 'running');
+  const cloudIdle = (): boolean => cloud && !config.experiments.some((e) => e.status === 'running') && !(config.properties ?? []).some((p) => p.status === 'running');
+  // The analytics property events go to, resolved against the live config (the dashboard may add or pause one).
+  // Property ids are lowercase; a pasted id with spaces or capitals still works.
+  const wanted = typeof options.property === 'string' ? options.property.trim().toLowerCase() || null : null;
+  // Analytics follow the freshest overrides, even ones that arrive after the experiments were decided:
+  // events are not variants, so a property made in the dashboard counts from the first page.
+  let propConfig = config;
+  const known = (): boolean => wanted !== null && pickProperty(propConfig, wanted) !== null;
+  const property = (): string | null => {
+    if (!wanted) return null;
+    const p = pickProperty(propConfig, wanted);
+    return p && p.status === 'running' ? p.key : null;
+  };
   // Tests are running in the config from the start, so `next dev` / `vite` would count the
   // developer as a visitor. Development never sends to the cloud; `vite preview` or a deploy does.
   const devLocal = cloud && isDevEnvironment();
   const held = new Set<string>();
-  const hold = (key: string, kind: 'exposure' | 'goal', message: string): void => {
+  const hold = (key: string, kind: 'exposure' | 'goal' | 'pageview', message: string): void => {
     if (held.has(key)) return;
     held.add(key);
     debugLog(kind, message);
@@ -215,6 +278,10 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
 
   const currentUrl = (): string | undefined =>
     browser ? location.pathname + location.search : undefined;
+  // Read once, on the first page this client sees: a redirect variant or a later route change
+  // would otherwise report the site itself as the referrer.
+  const entryRef = browser ? sessionReferrer() : undefined;
+  const refField = entryRef === undefined ? {} : { ref: entryRef };
 
   // Holdout marker: one `__holdout` exposure per visitor (holdout or enrolled) the first time they reach a running test.
   const markHoldout = (ts: number): void => {
@@ -228,15 +295,15 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
     }
     exposed.add(dedupKey);
     if (browser) persistExposureSet(exposed);
-    const event = { id: newId('e_'), type: 'exposure' as const, exp: HOLDOUT_KEY, var: group, vid: visitorId, sid: sessionId, ts, url: currentUrl() };
+    const event = { id: newId('e_'), type: 'exposure' as const, exp: HOLDOUT_KEY, var: group, vid: visitorId, sid: sessionId, ts, url: currentUrl(), ...refField };
     debugLog('exposure', `${HOLDOUT_KEY} / ${group} recorded`, event);
     queue.push(event);
   };
 
-  // While pending, exposures and goals wait here with the time they happened, so a
+  // While pending, exposures wait here with the time they happened (events wait on `ready`), so a
   // goal on the first page still counts (the cloud needs exposure time <= goal time).
   let pending = waitFor !== null;
-  const waiting: Array<{ exp: string; ts: number } | { goal: string; props?: Record<string, unknown>; ts: number }> = [];
+  const waiting: Array<{ exp: string; ts: number }> = [];
   const listeners = new Set<() => void>();
 
   const sendExposure = (experimentKey: string, ts: number): void => {
@@ -252,17 +319,18 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
     if (exposed.has(dedupKey)) return;
     exposed.add(dedupKey);
     if (browser) persistExposureSet(exposed);
-    const event = { id: newId('e_'), type: 'exposure' as const, exp: experimentKey, var: a.variant.key, vid: visitorId, sid: sessionId, ts, url: currentUrl() };
+    const event = { id: newId('e_'), type: 'exposure' as const, exp: experimentKey, var: a.variant.key, vid: visitorId, sid: sessionId, ts, url: currentUrl(), ...refField };
     debugLog('exposure', `${experimentKey} / ${a.variant.key} recorded`, event);
     queue.push(event);
   };
 
-  const sendGoal = (goal: string, props: Record<string, unknown> | undefined, ts: number): void => {
+  const sendGoal = (name: string, props: Record<string, unknown> | undefined, ts: number): void => {
     // The overrides' geo may only now say this is a crawler.
     if (isBot()) return;
-    if (!config.goals.some((g) => g.key === goal)) {
-      warn(`goal "${goal}" is not declared in splithub.config.ts; sending anyway.`);
-    }
+    // Resolved now, not when tracked: the overrides may have brought goals from the dashboard.
+    // A name without a usable key goes out as an event only (an invalid key would cost the whole batch).
+    const goal = goalKeyFor(config.goals, name);
+    if (!goal) return;
     if (typeof __SPLITHUB_LITE__ === 'undefined' && devLocal) {
       devNote('dev-events', DEV_NOTE);
       hold(`g:${goal}`, 'goal', `${goal} not sent: development never sends to the cloud`);
@@ -277,10 +345,241 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
     queue.push(event);
   };
 
+  // Analytics wait while overrides that may declare the property are on their way; without
+  // that, a first visit to a property made in the dashboard would lose its landing page.
+  let propertyFetch: Promise<void> | null = null;
+  const propertyWaiting: Array<() => void> = [];
+  const warnUnknownProperty = (): void => {
+    if (wanted && !known() && (isDevEnvironment() || isDebug())) {
+      warn(`property "${wanted}" is not in splithub.config.ts or the dashboard, so no pageviews or events are sent. Check the id (it looks like sh-x1h78w).`);
+    }
+  };
+  const withProperty = (send: () => void): void => {
+    if (!wanted) return;
+    if (!known() && propertyFetch) {
+      propertyWaiting.push(send);
+      return;
+    }
+    send();
+  };
+
+  // Hash routers keep the route after `#/`; that route is the page.
+  const hashRoute = (): string | null => {
+    if (!browser || options.trackHash === false) return null;
+    const hash = location.hash;
+    const route = hash.startsWith('#/') ? hash.slice(1) : hash.startsWith('#!/') ? hash.slice(2) : null;
+    if (route === null || (options.trackHash !== true && location.pathname !== '/')) return null;
+    return route.includes('?') || !location.search ? route : route + location.search;
+  };
+  const pageUrl = (): string => hashRoute() ?? location.pathname + location.search;
+  const pagePath = (): string => hashRoute()?.split('?')[0] ?? location.pathname;
+
+  // Engagement: visible time and deepest scroll of the current page, sent as `engage` when the
+  // visitor moves on (route change) or leaves (page hidden, by beacon).
+  let engage: { prop: string; url: string; ms: number; since: number | null; scroll: number } | null = null;
+  const pageVisible = (): boolean => typeof document === 'undefined' || document.visibilityState !== 'hidden';
+  const scrollDepth = (): number => {
+    if (!browser) return 0;
+    const doc = document.documentElement;
+    const height = Math.max(doc.scrollHeight, document.body?.scrollHeight ?? 0);
+    const seen = (window.scrollY || doc.scrollTop || 0) + window.innerHeight;
+    if (!height || seen >= height) return 100;
+    return Math.max(0, Math.min(100, Math.round((seen / height) * 100)));
+  };
+  /** Queues the engaged time so far; `final` ends the page. True when something was queued. */
+  const emitEngage = (final: boolean): boolean => {
+    const e = engage;
+    if (!e) return false;
+    const now = Date.now();
+    const ms = Math.min(MAX_ENGAGE_MS, Math.round(e.ms + (e.since !== null ? now - e.since : 0)));
+    e.ms = 0;
+    e.since = !final && pageVisible() ? now : null;
+    if (final) engage = null;
+    if (ms <= 0 || isBot()) return false;
+    const event = { id: newId('n_'), type: 'engage' as const, prop: e.prop, vid: visitorId, sid: sessionId, ts: now, url: e.url, ms, scroll: e.scroll };
+    debugLog('pageview', `${e.prop}: ${e.url} engaged ${Math.round(ms / 1000)} s, scrolled ${e.scroll}%`, event);
+    queue.push(event);
+    return true;
+  };
+
+  // Identify: the app's user id, sent once per session for each id and traits.
+  let sentIdentity: string | null = browser ? readStored('sessionStorage', UID_SENT_KEY) : null;
+  const sendIdentify = (uid: string, traits: Record<string, string | number | boolean> | undefined, ts: number): void => {
+    if (!wanted || isBot() || noVisitor) return;
+    const mark = `${uid}\n${traits ? JSON.stringify(traits) : ''}`;
+    withProperty(() => {
+      const prop = property();
+      // Another client on the page shares the session mark: the same identity goes out once.
+      if (!prop || isBot() || sentIdentity === mark || (browser && readStored('sessionStorage', UID_SENT_KEY) === mark)) return;
+      if (typeof __SPLITHUB_LITE__ === 'undefined' && devLocal) {
+        hold(`i:${prop}`, 'pageview', `${prop}: identify not sent: development never sends to the cloud`);
+        return;
+      }
+      sentIdentity = mark;
+      if (browser) writeStored('sessionStorage', UID_SENT_KEY, mark);
+      const event = { id: newId('i_'), type: 'identify' as const, prop, vid: visitorId, sid: sessionId, ts, uid, ...(traits ? { traits } : {}) };
+      debugLog('info', `${prop}: identify ${uid}`, event);
+      queue.push(event);
+    });
+  };
+  // A returning user's id goes out once in each new session, with its first page.
+  const resendIdentity = (ts: number): void => {
+    const uid = browser ? readStored('localStorage', UID_KEY) : null;
+    if (uid && !(sentIdentity ?? '').startsWith(`${uid}\n`)) sendIdentify(uid, undefined, ts);
+  };
+
+  // Pageview goals of a path, as goal rows: only when no `page` row carries them (the ingest
+  // turns a page row into the conversions of the pageview goals it matches).
+  const sendPageGoals = (path: string, ts: number): void => {
+    if (isBot()) return;
+    for (const goal of config.goals) {
+      if (goal.type === 'pageview' && goal.path && matchPath(goal.path, path)) {
+        debugLog('pageview', `${path} matches goal ${goal.key}`);
+        sendGoal(goal.key, undefined, ts);
+      }
+    }
+  };
+
+  // Another client on this page (sh.js, a second provider) may already collect this property:
+  // then this one sends no pageviews, time on page or identify of its own.
+  const endpointKey = resolveEndpoint(config).endpoint;
+  const owner = {};
+  const claimed = new Set<string>();
+  const collects = (prop: string): boolean => {
+    if (claimAnalytics(`${endpointKey}|${prop}`, owner)) {
+      claimed.add(prop);
+      return true;
+    }
+    if (typeof __SPLITHUB_LITE__ === 'undefined') devNote(`shared:${prop}`, `Another SplitHub script on this page already collects pageviews for "${prop}", so this one leaves them to it. Keep one install per property: the SDK or sh.js.`);
+    hold(`s:${prop}`, 'pageview', `${prop}: pageviews left to the other SplitHub script on this page`);
+    return false;
+  };
+
+  // Analytics: pageviews and events for the property. The provider and a route hook may report
+  // the same page twice in a row (StrictMode mounts twice); one view per URL per second is kept.
+  let lastPage: { url: string; ts: number } | null = null;
+  const sendPage = (path: string, ts: number): void => {
+    if (isBot()) return;
+    if (!wanted || noVisitor) {
+      sendPageGoals(path, ts);
+      return;
+    }
+    // Read the page now: by the time the property is known the visitor may be elsewhere.
+    const url = browser && path === pagePath() ? pageUrl() : path;
+    const title = browser && typeof document !== 'undefined' ? document.title.slice(0, 200) : '';
+    const ref = browser && typeof document !== 'undefined' ? document.referrer.slice(0, 512) : '';
+    withProperty(() => {
+      const prop = property();
+      if (isBot()) return;
+      if (!prop) {
+        sendPageGoals(path, ts);
+        return;
+      }
+      if (lastPage && lastPage.url === url && ts - lastPage.ts < 1000) return;
+      lastPage = { url, ts };
+      if (typeof __SPLITHUB_LITE__ === 'undefined' && devLocal) {
+        devNote('dev-events', DEV_NOTE);
+        hold(`p:${prop}`, 'pageview', `${prop}: pageviews not sent: development never sends to the cloud`);
+        return;
+      }
+      if (!collects(prop)) return;
+      emitEngage(true);
+      const event = { id: newId('p_'), type: 'page' as const, prop, vid: visitorId, sid: sessionId, ts, url, ...(title ? { title } : {}), ...(ref ? { ref } : {}) };
+      debugLog('pageview', `${prop}: ${url}`, event);
+      queue.push(event);
+      if (browser) engage = { prop, url, ms: 0, since: pageVisible() ? ts : null, scroll: scrollDepth() };
+      resendIdentity(ts);
+    });
+  };
+  // track(): one row. With a running property the `event` row, which the ingest also turns into the
+  // conversion of the experiments whose goal it is; without one, the goal row.
+  const sendTracked = (name: string, props: Record<string, unknown> | undefined, ts: number): void => {
+    if (isBot()) return;
+    if (!wanted || noVisitor) {
+      sendGoal(name, props, ts);
+      return;
+    }
+    if (!EVENT_NAME_PATTERN.test(name)) {
+      warn(`event name "${name}" is invalid: letters, digits, spaces and "_ . : / -", up to 64 characters.`);
+      sendGoal(name, props, ts);
+      return;
+    }
+    const url = currentUrl();
+    withProperty(() => {
+      const prop = property();
+      if (isBot()) return;
+      if (!prop) {
+        sendGoal(name, props, ts);
+        return;
+      }
+      if (typeof __SPLITHUB_LITE__ === 'undefined' && devLocal) {
+        hold(`v:${prop}:${name}`, 'goal', `${prop}: event ${name} not sent: development never sends to the cloud`);
+        return;
+      }
+      const event = { id: newId('v_'), type: 'event' as const, prop, name, vid: visitorId, sid: sessionId, ts, url, ...(props ? { props } : {}) };
+      debugLog('goal', `${prop}: event ${name}${props ? ' ' + JSON.stringify(props) : ''}`, event);
+      queue.push(event);
+    });
+  };
+
+  const emit = (name: string, props: Record<string, unknown> | undefined): void => {
+    if (disabled || isBot()) return;
+    const ts = Date.now();
+    props = fitProps(props, `event "${name}"`);
+    // After the ready handler has sent the waiting exposures: a goal only converts a visitor already in the experiment.
+    if (pending) void ready.then(() => sendTracked(name, props, ts));
+    else sendTracked(name, props, ts);
+  };
+
+  // Client-side navigations as pageviews, bound on the first pageview() and released by destroy().
+  // A new path, query or hash route is a new page.
+  let unwatch: (() => void) | null = null;
+  const watch = (): void => {
+    if (unwatch || !browser || options.trackNavigation === false) return;
+    let last = pageUrl();
+    unwatch = onNavigation(() => {
+      const now = pageUrl();
+      if (now === last) return;
+      last = now;
+      client.pageview();
+    });
+  };
+
+  // Page listeners of a property: engagement (scroll, hide) and the automatic link events.
+  let unbindPage: (() => void) | null = null;
+  const bindPage = (): void => {
+    if (unbindPage || !browser || !wanted || disabled) return;
+    const onScroll = (): void => {
+      if (engage) engage.scroll = Math.max(engage.scroll, scrollDepth());
+    };
+    const leave = (): void => {
+      if (emitEngage(false)) void queue.flush(true);
+      if (engage) engage.since = null;
+    };
+    const onVisibility = (): void => {
+      if (document.visibilityState === 'hidden') leave();
+      else if (engage && engage.since === null) engage.since = Date.now();
+    };
+    const onShow = (): void => {
+      if (engage && engage.since === null && pageVisible()) engage.since = Date.now();
+    };
+    addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('visibilitychange', onVisibility);
+    addEventListener('pagehide', leave);
+    addEventListener('pageshow', onShow);
+    unbindPage = () => {
+      removeEventListener('scroll', onScroll);
+      document.removeEventListener('visibilitychange', onVisibility);
+      removeEventListener('pagehide', leave);
+      removeEventListener('pageshow', onShow);
+    };
+  };
+
   const ready: Promise<void> = waitFor
     ? waitFor.then((fresh) => {
         if (fresh) {
           config = applyRemoteOverrides(base, fresh);
+          propConfig = config;
           context = contextFor(fresh.ctx);
           debugLog('remote', `first visit: overrides v${fresh.version} arrived, experiments decided`, { experiments: fresh.experiments });
         } else {
@@ -288,13 +587,23 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
         }
         pending = false;
         // Exposures first: a goal only converts a visitor already in the test.
-        for (const w of waiting) if ('exp' in w) sendExposure(w.exp, w.ts);
-        for (const w of waiting) if ('goal' in w) sendGoal(w.goal, w.props, w.ts);
+        for (const w of waiting) sendExposure(w.exp, w.ts);
         waiting.length = 0;
         for (const listener of [...listeners]) listener();
         listeners.clear();
       })
     : Promise.resolve();
+
+  if (wanted && !known()) {
+    if (arriving) {
+      propertyFetch = withTimeout(arriving, PROPERTY_WAIT_MS).then((fresh) => {
+        if (fresh) propConfig = applyRemoteOverrides(base, fresh);
+        propertyFetch = null;
+        warnUnknownProperty();
+        for (const send of propertyWaiting.splice(0)) send();
+      });
+    } else warnUnknownProperty();
+  }
 
   const decided = new Set<string>();
   const client: SplitHubClient = {
@@ -332,7 +641,7 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
     exposure(experimentKey) {
       if (disabled) return;
       if (pending) {
-        if (!waiting.some((w) => 'exp' in w && w.exp === experimentKey)) waiting.push({ exp: experimentKey, ts: Date.now() });
+        if (!waiting.some((w) => w.exp === experimentKey)) waiting.push({ exp: experimentKey, ts: Date.now() });
         return;
       }
       sendExposure(experimentKey, Date.now());
@@ -360,30 +669,40 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
       return (a.variant ?? experiment.variants[0]!).value as T;
     },
 
-    track(goal, props) {
-      if (disabled || isBot()) return;
-      if (pending) waiting.push({ goal, ...(props ? { props } : {}), ts: Date.now() });
-      else sendGoal(goal, props, Date.now());
+    track(name, props) {
+      emit(name, props);
     },
 
     pageview(path) {
-      const current = path ?? (browser ? location.pathname : undefined);
+      const current = path ?? (browser ? pagePath() : undefined);
       if (!current) return;
+      if (path === undefined) watch();
+      bindPage();
+      if (disabled) return;
       // Pageview goals may be declared in the dashboard: match them once the overrides are in.
       if (pending) {
         const ts = Date.now();
-        void ready.then(() => {
-          if (disabled) return;
-          for (const goal of config.goals) if (goal.type === 'pageview' && goal.path && matchPath(goal.path, current)) sendGoal(goal.key, undefined, ts);
-        });
+        void ready.then(() => sendPage(current, ts));
         return;
       }
-      for (const goal of config.goals) {
-        if (goal.type === 'pageview' && goal.path && matchPath(goal.path, current)) {
-          debugLog('pageview', `${current} matches goal ${goal.key}`);
-          client.track(goal.key);
-        }
+      sendPage(current, Date.now());
+    },
+
+    identify(uid, traits) {
+      if (uid === null) {
+        writeStored('localStorage', UID_KEY, null);
+        writeStored('sessionStorage', UID_SENT_KEY, null);
+        sentIdentity = null;
+        return;
       }
+      const id = typeof uid === 'string' ? uid.trim() : '';
+      if (!id || id.length > 128) {
+        warn('identify() needs a user id of 1 to 128 characters.');
+        return;
+      }
+      if (browser) writeStored('localStorage', UID_KEY, id);
+      if (disabled || isBot()) return;
+      sendIdentify(id, cleanTraits(traits), Date.now());
     },
 
     autoGoals(root) {
@@ -409,7 +728,15 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
     flush: () => queue.flush(false),
     // Unbinds the page listeners; pending events are kept and a later event binds again,
     // so a provider may destroy on unmount even under StrictMode's double mount.
-    destroy: () => queue.destroy(),
+    destroy: () => {
+      queue.destroy();
+      unwatch?.();
+      unwatch = null;
+      unbindPage?.();
+      unbindPage = null;
+      for (const prop of claimed) releaseAnalytics(`${endpointKey}|${prop}`, owner);
+      claimed.clear();
+    },
   };
 
   if (browser && isDebug()) {
@@ -417,6 +744,28 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
     debugLog('info', `client ready · ${config.experiments.length} experiments · visitor ${visitorId} · ${config.storage.mode} mode`, { context });
   }
   return client;
+}
+
+// One wrap of history for every client on the page; each client listens while it lives.
+const navListeners = new Set<() => void>();
+let historyWrapped = false;
+function onNavigation(listener: () => void): () => void {
+  if (!historyWrapped && typeof history !== 'undefined') {
+    historyWrapped = true;
+    for (const method of ['pushState', 'replaceState'] as const) {
+      const original = history[method];
+      history[method] = function (this: History, ...args: Parameters<History['pushState']>) {
+        const out = original.apply(this, args);
+        // After the router has rendered the new page, so its title is current.
+        setTimeout(() => navListeners.forEach((l) => l()), 0);
+        return out;
+      };
+    }
+    addEventListener('popstate', () => navListeners.forEach((l) => l()));
+    addEventListener('hashchange', () => navListeners.forEach((l) => l()));
+  }
+  navListeners.add(listener);
+  return () => void navListeners.delete(listener);
 }
 
 function stripUndefined<T extends object>(o: T): Partial<T> {
@@ -437,6 +786,57 @@ function withTimeout<T>(p: Promise<T | null>, ms: number): Promise<T | null> {
       }
     );
   });
+}
+
+/** Props as the ingest takes them: at most 4 KB of JSON. Larger ones keep `revenue` and the plain values that fit, with a warning. */
+function fitProps(props: Record<string, unknown> | undefined, what: string): Record<string, unknown> | undefined {
+  if (!props || typeof props !== 'object') return undefined;
+  let json: string;
+  try {
+    json = JSON.stringify(props);
+  } catch {
+    warn(`${what}: props cannot be sent as JSON, so they were left out.`);
+    return undefined;
+  }
+  if (json.length <= MAX_PROPS_BYTES) return props;
+  const out: Record<string, unknown> = {};
+  let size = 2;
+  const entries = Object.entries(props).sort(([a], [b]) => (a === 'revenue' ? -1 : b === 'revenue' ? 1 : 0));
+  for (const [key, value] of entries) {
+    if (value !== null && typeof value === 'object') continue;
+    const part = JSON.stringify({ [key]: value }).length - 1;
+    if (size + part > MAX_PROPS_BYTES) continue;
+    out[key] = value;
+    size += part;
+  }
+  const kept = Object.keys(out);
+  warn(`${what}: props are larger than 4 KB, so ${kept.length ? `only ${kept.join(', ')} went out` : 'none went out'}.`);
+  return kept.length ? out : undefined;
+}
+
+/** Flat traits (text, numbers, true/false) up to 4 KB; anything else is left out. */
+function cleanTraits(traits: Record<string, unknown> | undefined): Record<string, string | number | boolean> | undefined {
+  if (!traits || typeof traits !== 'object') return undefined;
+  const out: Record<string, string | number | boolean> = {};
+  let size = 2;
+  let skipped = false;
+  for (const [key, value] of Object.entries(traits)) {
+    const plain = typeof value === 'string' || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value));
+    if (!plain || key.length > 64) {
+      if (value !== undefined) skipped = true;
+      continue;
+    }
+    const v = typeof value === 'string' ? value.slice(0, 256) : value;
+    const part = JSON.stringify({ [key]: v }).length - 1;
+    if (size + part > MAX_PROPS_BYTES) {
+      skipped = true;
+      continue;
+    }
+    out[key] = v;
+    size += part;
+  }
+  if (skipped) warn('identify(): traits keep text, numbers and true/false up to 4 KB; the rest was left out.');
+  return Object.keys(out).length ? out : undefined;
 }
 
 const warned = new Set<string>();

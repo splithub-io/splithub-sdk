@@ -9,7 +9,7 @@ function loadSqlite(): SqliteModule {
   if (!mod) throw new Error('[splithub] @splithub/adapter-sqlite needs Node.js 22.13 or newer (built-in node:sqlite).');
   return mod;
 }
-import { countsFromRow, variantCountsSql, type Store } from '@splithub/node';
+import { countsFromRow, propertyCountsFromRows, propertyCountsSql, storedEventFromRow, variantCountsSql, type Store } from '@splithub/node';
 
 export interface SqliteStoreOptions {
   /** File path, or ":memory:". Defaults to "./splithub.db". */
@@ -78,6 +78,12 @@ export function sqliteStore(options: SqliteStoreOptions = {}): Store {
     GROUP BY experiment
   `);
 
+  // Analytics properties: raw counts and rows (pageviews and events share the table).
+  const prop = propertyCountsSql({ dialect: 'sqlite', table });
+  const propTotals = db.prepare(prop.totals.sql);
+  const propEvents = db.prepare(prop.events.sql);
+  const propRows = db.prepare(prop.rows.sql);
+
   return {
     async insertEvents(events) {
       let n = 0;
@@ -96,6 +102,14 @@ export function sqliteStore(options: SqliteStoreOptions = {}): Store {
     },
     async variantCounts(experiment, goal) {
       return (counts.all(...(attribution.bind({ experiment, goal }) as string[])) as Array<Record<string, unknown>>).map(countsFromRow);
+    },
+    async propertyCounts(property, since, until) {
+      const totals = propTotals.all(...(prop.totals.bind({ property, since, until }) as Array<string | number>))[0] as Record<string, unknown> | undefined;
+      const events = propEvents.all(...(prop.events.bind({ property, since, until }) as Array<string | number>)) as Array<Record<string, unknown>>;
+      return propertyCountsFromRows(totals, events);
+    },
+    async propertyEvents(property, { before, limit }) {
+      return (propRows.all(...(prop.rows.bind({ property, before, limit }) as Array<string | number>)) as Array<Record<string, unknown>>).map(storedEventFromRow);
     },
     async summaries() {
       return (summary.all() as unknown[]).map((row) => {

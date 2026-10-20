@@ -10,7 +10,7 @@ const config = defineConfig({ project: 'app', storage: { mode: 'self', endpoint:
 const client = createClient(config);           // browser: reads/writes the sh_vid cookie
 client.variant('hero-cta');                    // 'control' | 'bold', records an exposure
 client.value<string>('hero-title');
-client.track('signup', { revenue: 49 });
+client.track('signup', { revenue: 49 });        // an event, any name; converts experiments whose goal it is
 ```
 
 In cloud mode the client also applies **remote overrides** (pause, traffic,

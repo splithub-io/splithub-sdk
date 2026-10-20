@@ -8,7 +8,11 @@
 //   2. for redirect experiments matching the current path: assigns the visitor
 //      (same hash as the SDK, targeting flow included) and, when the variant
 //      points elsewhere, navigates there before the page paints;
-//   3. records the exposure, fires pageview goals, binds click goals, exposes window.splithub.track().
+//   3. records the exposure, fires pageview goals, binds click goals, exposes window.splithub.track()
+//      (an event, any name; it converts experiments whose goal it is);
+//   4. analytics, with data-property="<property id>": a pageview per page and per
+//      client-side navigation (the core client follows history and hash routes), time on page
+//      and scroll depth, and window.splithub.identify().
 //
 // Holding the page (flicker-free redirects). The script hides the page while it
 // decides only when a redirect can happen here:
@@ -61,6 +65,8 @@ export interface BootOptions {
   noHold?: boolean;
   /** This page has a redirect test: hold it even on a first visit (no cached overrides yet). */
   redirects?: boolean;
+  /** Analytics property id for pageviews and events (`data-property="sh-x1h78w"`). Without it the script sends no analytics. */
+  property?: string | false;
 }
 
 /**
@@ -73,7 +79,10 @@ export function siteConfig(key: string, endpoint?: string): SplitHubConfig {
 
 export interface SplitHubWindow {
   client: SplitHubClient;
+  /** An event, any name: `splithub.track('Video Played', { id: 3 })`. */
   track: SplitHubClient['track'];
+  /** Ties the visitor to your user id: `splithub.identify('user_42', { plan: 'pro' })`. */
+  identify: SplitHubClient['identify'];
   variant: SplitHubClient['variant'];
   value: SplitHubClient['value'];
   /** Resolved once the redirect decision is made. */
@@ -136,7 +145,8 @@ export async function boot(options: BootOptions): Promise<RedirectDecision | nul
       if (!client) throw new Error('[splithub] not ready yet: await window.splithub.ready');
       return client;
     },
-    track: (goal, props) => later((c) => c.track(goal, props), undefined),
+    track: (name, props) => later((c) => c.track(name, props), undefined),
+    identify: (uid, traits) => later((c) => c.identify(uid, traits), undefined),
     variant: (key) => later((c) => c.variant(key), 'control'),
     value: (key) => later((c) => c.value(key), undefined as never),
     ready,
@@ -146,6 +156,7 @@ export async function boot(options: BootOptions): Promise<RedirectDecision | nul
   const drain = (call: [string, ...unknown[]]) => {
     const [method, ...args] = call;
     if (method === 'track') api.track(String(args[0]), args[1] as Record<string, unknown> | undefined);
+    if (method === 'identify') api.identify(args[0] === null ? null : String(args[0]), args[1] as Record<string, unknown> | undefined);
   };
   for (const call of q) drain(call);
   window.splithubq = { push: drain } as unknown as Array<[string, ...unknown[]]>;
@@ -162,15 +173,25 @@ export async function boot(options: BootOptions): Promise<RedirectDecision | nul
 
   let overrides: RemoteOverrides | null = cached?.overrides ?? null;
   const stale = !cached || Date.now() - cached.fetchedAt > 60_000;
+  // Overrides that come after the redirect decision still count for analytics: a property made
+  // in the dashboard is only in them, and the landing page must not be lost (the client waits up to 5 s).
+  let arriving: Promise<RemoteOverrides | null> | undefined;
   if (mayRedirect || stale) {
-    const fresh = await withTimeout(fetchRemoteOverrides(url), mayRedirect ? (options.holdMs ?? 1500) - 100 : 5000, null);
-    if (fresh) {
-      overrides = fresh;
-      writeRemoteCache(options.key, fresh);
-    }
+    let settled = false;
+    const fetching = fetchRemoteOverrides(url).then((fresh) => {
+      settled = true;
+      if (fresh) writeRemoteCache(options.key, fresh);
+      return fresh;
+    });
+    const fresh = await withTimeout(fetching, mayRedirect ? (options.holdMs ?? 1500) - 100 : 5000, null);
+    if (fresh) overrides = fresh;
+    else if (!settled) arriving = fetching;
   }
 
-  client = createClient(base, { remote: { overrides: overrides ?? { version: 0, experiments: {} } } });
+  client = createClient(base, {
+    remote: { overrides: overrides ?? { version: 0, experiments: {} }, ...(arriving ? { arriving } : {}) },
+    ...(options.property !== undefined ? { property: options.property } : {}),
+  });
   // A visitor who reaches a running redirect test joins the holdout comparison even when held out
   // (no decision then); exposure() sends the `__holdout` marker by the same rule as the SDK and the middleware.
   let reached = null as string | null;
@@ -196,3 +217,4 @@ export async function boot(options: BootOptions): Promise<RedirectDecision | nul
   resolveReady(decision);
   return decision;
 }
+

@@ -1,23 +1,35 @@
 // `splithub results <id>`: one experiment. SplitHub Cloud sends the verdict with ready-to-print
 // words (`display`, `voice`); this file only lays them out. A self-hosted endpoint sends raw counts.
-import { fetchResults, isRawResults, resolveTarget, type Analysis, type CloudResults, type RawResults, type Verdict } from '../api';
+import { fetchResults, isRawResults, resolveTarget, type Analysis, type CloudResults, type RawResults, type Results, type Verdict } from '../api';
 import { fail, printJson } from '../errors';
 import { detectProject } from '../project';
 import { bar, c, pct, statusColor, table, verdictColor, verdictIcon } from '../ui';
+import { breakdown, breakdownCsv, engagement, eventsByVariant, eventsByVariantCsv, fetchSlice, printScope, timeline, wantsSlice } from './experiment-reports';
+import type { Flags } from './init';
 
 export const HOLDOUT = '__holdout';
 
 /** For finished tests on a self-hosted endpoint (the cloud sends `display.next`). */
-const FINISHED_NEXT = 'This test is finished but its variants are still in the code. Decide which variant to keep, then run npx splithub ship <id> --keep <variant> (agents: the splithub-ship skill).';
+const FINISHED_NEXT = 'This experiment is finished but its variants are still in the code. Decide which variant to keep, then run npx splithub ship <id> --keep <variant> (agents: the splithub-ship skill).';
 
-export async function results(key: string | undefined, flags: Record<string, unknown>): Promise<void> {
+export async function results(key: string | undefined, flags: Flags): Promise<void> {
   if (!key) fail('USAGE', 'Which experiment? npx splithub results <id>');
-  const target = resolveTarget(flags, detectProject());
-  const r = await fetchResults(target, key);
+  // One view at a time: a breakdown, a timeline, engagement or events; each takes the same range and filters.
+  const views = [flags.by !== undefined && !flags.export, flags.timeline === true, flags.engagement === true, flags.events === true].filter(Boolean).length;
+  if (views > 1) fail('USAGE', 'One view at a time: --by, --timeline, --engagement or --events.');
+  if (flags.export && flags.events) return eventsByVariantCsv(key, flags);
+  if (flags.export) return breakdownCsv(key, flags);
+  if (flags.events) return eventsByVariant(key, flags);
+  if (flags.by !== undefined) return breakdown(key, flags);
+  if (flags.timeline) return timeline(key, flags);
+  if (flags.engagement) return engagement(key, flags);
+  const slice = wantsSlice(flags);
+  const r = slice ? await fetchSlice<Results>(key, flags) : await fetchResults(resolveTarget(flags, detectProject()), key);
   const raw = isRawResults(r);
   if (flags.json) {
     const next = raw && r.status === 'finished' && r.experiment !== HOLDOUT ? { next: FINISHED_NEXT } : {};
-    printJson({ ...r, ...next });
+    // A slice carries no advice (current servers leave it out; an older one may not).
+    printJson(!raw && r.scope ? { ...r, voice: undefined } : { ...r, ...next });
     return;
   }
   const title = r.experiment === HOLDOUT ? 'Holdout: long-term impact' : r.experiment;
@@ -25,7 +37,10 @@ export async function results(key: string | undefined, flags: Record<string, unk
   if (r.description) console.log(c.dim(r.description));
   console.log();
   if (raw) printRaw(r);
-  else printCloud(r);
+  else {
+    printScope(r.scope);
+    printCloud(r);
+  }
 }
 
 /** Self-hosted: the counts as they are, and where verdicts come from. */
@@ -58,7 +73,8 @@ function printCloud(r: CloudResults): void {
   // Older servers send no display: the factual message alone.
   console.log(verdictColor(v.status, d ? `${verdictIcon(v.status)} ${d.label}  ${v.message}` : v.message));
   if (d) {
-    if (r.voice?.line) console.log(r.voice.line);
+    // A slice is numbers only: the friendly line speaks for the whole experiment.
+    if (r.voice?.line && !r.scope) console.log(r.voice.line);
     for (const line of d.lines) if (line !== r.voice?.line) console.log(c.dim(line));
   }
   console.log();
@@ -112,7 +128,7 @@ function printCloud(r: CloudResults): void {
     for (const f of r.factors) {
       console.log(
         table(
-          [f.key.toUpperCase(), 'VISITORS', 'CONV.', 'RATE', 'LIFT', 'P-VALUE'],
+          [f.key.toUpperCase(), 'VISITORS', 'CONV', 'RATE', 'LIFT', 'P-VALUE'],
           f.levels.map((l) => [l.level + (f.best === l.level ? c.green(' ✔') : ''), String(l.exposures), String(l.conversions), pct(l.rate), l.relativeLift === null ? '–' : pct(l.relativeLift, true), l.pValue === null ? '–' : l.pValue.toFixed(3)])
         )
       );

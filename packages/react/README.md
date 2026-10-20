@@ -76,7 +76,7 @@ const title = useValue<string>('hero-title');
 // Same experiment in several places → same variant for the visitor
 const v = useVariant('hero-cta');          // 'control' | 'bold'
 
-// Conversions
+// Events: one call, any name. An experiment's goal can be any of them.
 const track = useTrack();
 <button onClick={() => track('signup')}>Sign up</button>
 <button onClick={() => track('checkout', { revenue: 49 })}>Buy</button>
@@ -137,6 +137,6 @@ prop) so the server and the client compute the same variant. `@splithub/next`
 | `Experiment` / `Variant` | Render one `<Variant>` by assignment; records an exposure on mount |
 | `useVariant(id)` | Variant key, control when not running |
 | `useValue(id)` | Payload of a `value` experiment |
-| `useTrack()` | `(goal, props?) => void` |
+| `useTrack()` | `(name, props?) => void`: an event, any name; converts experiments whose goal it is |
 | `usePageview(path)` | Fire pageview goals on client-side navigation |
 | `useSplitHub()` | The underlying `@splithub/core` client |

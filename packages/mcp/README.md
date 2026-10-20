@@ -1,7 +1,7 @@
 # @splithub/mcp
 
 MCP server for SplitHub. Lets Claude Code, Cursor, Codex or any MCP client create
-experiments, read verdicts, start/pause/finish tests and push config — through tools,
+experiments, read verdicts, start/pause/finish experiments and push config — through tools,
 with the same config file and credentials as the `splithub` CLI.
 
 ```bash
@@ -14,9 +14,12 @@ claude mcp add splithub -- npx -y @splithub/mcp
 { "mcpServers": { "splithub": { "command": "npx", "args": ["-y", "@splithub/mcp"] } } }
 ```
 
-Tools: `splithub_status`, `splithub_results`, `splithub_plan`, `splithub_create_experiment`, `splithub_set_status`,
+Tools: `splithub_status`, `splithub_results`, `splithub_plan`, `splithub_experiment_create`, `splithub_experiment_status`,
 `splithub_refs`, `splithub_ship`, `splithub_remove`, `splithub_review`, `splithub_push`, `splithub_pull`,
-`splithub_doctor`, `splithub_login`, `splithub_whoami`, `splithub_projects`, `splithub_init`.
+`splithub_doctor`, `splithub_login`, `splithub_whoami`, `splithub_projects`, `splithub_init`, and the analytics tools
+(`splithub_analytics*`, `splithub_property_create`, `splithub_property_status`). The old names
+`splithub_create_experiment`, `splithub_set_status`, `splithub_create_property` and `splithub_set_property_status`
+still work for one release.
 
 With SplitHub Cloud, results carry the verdict (`verdict.message`), a friendly line (`voice.line`)
 and ready-to-show text (`display`). Self-hosted projects get raw numbers only

@@ -1,9 +1,17 @@
 import { attributeVariants, type AttributedCounts } from './attribution';
 
-/** One row in the events table, whatever the backing database. */
+/** Row types of an analytics property (`experiment` holds the property key). */
+export const ANALYTICS_TYPES: ReadonlySet<StoredEvent['type']> = new Set(['page', 'event', 'engage', 'identify']);
+
+/**
+ * One row in the events table, whatever the backing database. Analytics rows reuse
+ * the columns: for `page`, `event`, `engage` and `identify`, `experiment` holds the
+ * property key and `goal` the event name (null for the others); a page's title and
+ * referrer, an engage's `{ ms, scroll }` and an identify's `{ uid, traits }` sit in `props`.
+ */
 export interface StoredEvent {
   id: string;
-  type: 'exposure' | 'goal';
+  type: 'exposure' | 'goal' | 'page' | 'event' | 'engage' | 'identify';
   experiment: string | null;
   variant: string | null;
   goal: string | null;
@@ -57,7 +65,55 @@ export interface Store {
   /** Unique exposed and converted visitors per variant (any order), with per-visitor revenue sum and sum of squares. */
   variantCounts(experiment: string, goal: string): Promise<StoreVariantCounts[]>;
   summaries(): Promise<ExperimentSummary[]>;
+  /**
+   * Raw counts of an analytics property from `since` up to `until` (unix ms, exclusive; open-ended
+   * when missing): pageviews, events by name, unique visitors and sessions. Optional: stores
+   * without it answer 501 on `{base}/properties/:key`. SQL stores can run `propertyCountsSql`.
+   */
+  propertyCounts?(property: string, since: number, until?: number): Promise<PropertyCounts>;
+  /** The latest raw rows of an analytics property, newest first. Optional. */
+  propertyEvents?(property: string, options: { before: number; limit: number }): Promise<StoredEvent[]>;
   close?(): Promise<void> | void;
+}
+
+/** Raw counts of one analytics property; aggregated reports are SplitHub Cloud's. */
+export interface PropertyCounts {
+  pageviews: number;
+  visitors: number;
+  sessions: number;
+  /** Distinct user ids sent with identify. */
+  users: number;
+  /** Custom events (goals included) by name, most frequent first. */
+  events: Array<{ name: string; count: number; visitors: number }>;
+}
+
+/** Shared by the memory store and the tests: the counts over rows already in memory. */
+export function countProperty(events: Iterable<StoredEvent>, property: string, since: number, until = Number.POSITIVE_INFINITY): PropertyCounts {
+  let pageviews = 0;
+  const visitors = new Set<string>();
+  const sessions = new Set<string>();
+  const users = new Set<string>();
+  const byName = new Map<string, { count: number; visitors: Set<string> }>();
+  for (const e of events) {
+    if (!ANALYTICS_TYPES.has(e.type) || e.experiment !== property || e.ts < since || e.ts >= until) continue;
+    if (e.type === 'identify') {
+      if (typeof e.props?.uid === 'string') users.add(e.props.uid);
+      continue;
+    }
+    if (e.type === 'engage') continue;
+    visitors.add(e.visitorId);
+    sessions.add(e.sessionId);
+    if (e.type === 'page') pageviews++;
+    else if (e.goal) {
+      const n = byName.get(e.goal) ?? { count: 0, visitors: new Set<string>() };
+      n.count++;
+      n.visitors.add(e.visitorId);
+      byName.set(e.goal, n);
+    }
+  }
+  const list = [...byName].map(([name, n]) => ({ name, count: n.count, visitors: n.visitors.size }));
+  list.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  return { pageviews, visitors: visitors.size, sessions: sessions.size, users: users.size, events: list };
 }
 
 /** In-memory store for tests and quick local runs. Not persistent. */
@@ -78,6 +134,15 @@ export function createMemoryStore(): Store & { events: StoredEvent[] } {
     },
     async variantCounts(experiment, goal) {
       return attributeVariants(events, experiment, goal);
+    },
+    async propertyCounts(property, since, until) {
+      return countProperty(events, property, since, until);
+    },
+    async propertyEvents(property, { before, limit }) {
+      return events
+        .filter((e) => ANALYTICS_TYPES.has(e.type) && e.experiment === property && e.ts < before)
+        .sort((a, b) => b.ts - a.ts)
+        .slice(0, limit);
     },
     async summaries() {
       const map = new Map<string, ExperimentSummary & { visitorSet: Set<string> }>();

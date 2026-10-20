@@ -125,12 +125,12 @@ const keyList = (v: Flags[string]): string[] => (typeof v === 'string' ? v.split
 
 /** The cloud already has another test under a pushed key: say which, and the two ways on. */
 function keyConflict(conflicts: KeyConflict[]): never {
-  const why = conflicts.map((k) => (k.reason === 'dashboard' ? `${k.key} (a different test made in the dashboard)` : `${k.key} (an earlier test, ${(k.exposures ?? 0).toLocaleString('en-US')} visitors)`));
+  const why = conflicts.map((k) => (k.reason === 'dashboard' ? `${k.key} (a different experiment made in the dashboard)` : `${k.key} (an earlier experiment, ${(k.exposures ?? 0).toLocaleString('en-US')} visitors)`));
   const keys = conflicts.map((k) => k.key).join(',');
   fail(
     'KEY_CONFLICT',
-    `These keys already belong to another test in the cloud: ${why.join('; ')}. Nothing was pushed.`,
-    `New test: rename its key, or run npx splithub push --replace ${keys} (the old numbers are cleared). Same test: npx splithub push --same ${keys}.`
+    `These keys already belong to another experiment in the cloud: ${why.join('; ')}. Nothing was pushed.`,
+    `New experiment: rename its key, or run npx splithub push --replace ${keys} (the old numbers are cleared). Same experiment: npx splithub push --same ${keys}.`
   );
 }
 
@@ -164,7 +164,7 @@ export async function push(flags: Flags): Promise<void> {
   });
   const body = (await res.json().catch(() => ({}))) as Partial<PushResponse> & { error?: string; code?: string; conflicts?: KeyConflict[] };
   if (res.status === 409 && body.code === 'key_conflict' && body.conflicts?.length) keyConflict(body.conflicts);
-  if (res.status === 409 && body.code === 'key_deleted') fail('KEY_DELETED', `${body.error ?? 'A deleted test used one of these keys'}. Nothing was pushed.`, 'Give the test a new key in splithub.config.ts and push again.');
+  if (res.status === 409 && body.code === 'key_deleted') fail('KEY_DELETED', `${body.error ?? 'A deleted experiment used one of these keys'}. Nothing was pushed.`, 'Give the experiment a new key in splithub.config.ts and push again.');
   if (!res.ok) throw apiError(res.status, body, `${target.url}/config responded ${res.status}`);
 
   // Write the public key into the config when it is missing.

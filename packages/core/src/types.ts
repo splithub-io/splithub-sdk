@@ -99,7 +99,10 @@ export interface ExperimentBase {
   maxExposures?: number;
   /** Only run between these moments (ISO 8601). Outside the window the experiment behaves as not running. */
   schedule?: { startAt?: string; endAt?: string };
-  /** Goal key from `goals`. Used as the primary metric for the verdict. */
+  /**
+   * The goal the verdict is judged on: a key from `goals` or any event name (`'signup'`,
+   * `'Video Played'`). A name not declared in `goals` becomes an event goal keyed by its slug.
+   */
   goal?: string;
   /** Hash seed. Change it to reshuffle every visitor. Defaults to the experiment key. */
   seed?: string;
@@ -121,7 +124,7 @@ export interface ExperimentBase {
    */
   goodSample?: number;
   /**
-   * Goals read beside the primary `goal`. `secondary`: informational, compared the same way.
+   * Goals (keys or event names) read beside the primary `goal`. `secondary`: informational, compared the same way.
    * `guardrails`: must not get significantly worse; a variant that hurts one is never called the winner.
    * A guardrail is worse when its conversion rate drops; pass `{ goal, worse: 'higher' }` for goals
    * where more is bad (refunds, errors).
@@ -177,11 +180,25 @@ export type ExperimentInput =
   | RedirectExperimentInput
   | MvtExperimentInput;
 
+/** Shared by every goal: a label for people, and a fixed value per conversion for analytics. */
+export interface GoalLabels {
+  /** Human name ("Sign up"); the key stays what the code sends. */
+  name?: string;
+  description?: string;
+  /** Value of one conversion in analytics reports when the event carries no `revenue` prop. */
+  value?: number;
+}
+
 export type GoalInput =
-  | { type: 'event'; revenue?: boolean; description?: string }
-  | { type: 'pageview'; path: string; description?: string }
+  | (GoalLabels & {
+      type: 'event';
+      revenue?: boolean;
+      /** The event name analytics matches when it differs from the key (`'Video Played'` for key `video-played`). */
+      event?: string;
+    })
+  | (GoalLabels & { type: 'pageview'; path: string })
   /** Counted when a visitor clicks an element matching the CSS selector (auto-tracked by the SDK and the drop-in script). */
-  | { type: 'click'; selector: string; description?: string };
+  | (GoalLabels & { type: 'click'; selector: string });
 
 export type StorageInput =
   | {
@@ -197,11 +214,31 @@ export type StorageInput =
       endpoint: string;
     };
 
+/**
+ * An analytics property: a stream of pageviews and custom events, read as reports
+ * (visitors, pages, sources, events, goal conversions). Declared like experiments;
+ * `paused` drops its events at ingest.
+ */
+export interface PropertyInput {
+  /** Default `running`. */
+  status?: PropertyStatus;
+  /** Human name shown in the dashboard and CLI (up to 80 characters). */
+  name?: string;
+  description?: string;
+  /** Goal keys from `goals` reported as conversions of this property. Default: every goal of the project. */
+  goals?: string[];
+}
+
+export type PropertyStatus = 'running' | 'paused';
+
 export interface SplitHubConfigInput {
   project: string;
   storage: StorageInput;
+  /** Goals by key: events you mark as goals, page visits or clicks. */
   goals?: Record<string, GoalInput>;
   experiments: Record<string, ExperimentInput>;
+  /** Analytics properties by key: pageviews and custom events, no variants. */
+  properties?: Record<string, PropertyInput>;
   /** Cookie / localStorage key for the visitor id. Defaults to `sh_vid`. */
   visitorKey?: string;
   /**
@@ -216,7 +253,7 @@ export interface SplitHubConfigInput {
    * Holdout: this share of visitors (`percent`, 0..50) sees the control in every experiment and
    * is compared with everyone else as the reserved experiment `__holdout` (variants `holdout`,
    * `enrolled`) for the long-term effect of all your tests together. `goal` is its primary goal
-   * (default: the first declared goal); the other goals are read as secondary metrics.
+   * (any event name; default: the first declared goal); the other goals are read as secondary metrics.
    */
   holdout?: { percent: number; seed?: string; goal?: string };
 }
@@ -295,6 +332,24 @@ export interface Goal {
   selector?: string | null;
   revenue: boolean;
   description: string | null;
+  /** Human name; absent = show the key. */
+  name?: string;
+  /** Fixed value of one conversion in analytics; absent = none. */
+  value?: number;
+  /** Event name analytics matches instead of the key. */
+  event?: string;
+}
+
+export interface Property {
+  key: string;
+  status: PropertyStatus;
+  /** Human name; absent = show the key. */
+  name?: string;
+  description: string | null;
+  /** Goal keys reported as conversions; empty = every goal of the project. */
+  goals: string[];
+  /** Where the property was defined: the config file (default) or the cloud dashboard. */
+  origin?: 'config' | 'dashboard';
 }
 
 export interface SplitHubConfig {
@@ -304,6 +359,8 @@ export interface SplitHubConfig {
   runDraftsInDev: boolean;
   goals: Goal[];
   experiments: Experiment[];
+  /** Analytics properties; absent = none. */
+  properties?: Property[];
   /** Layer seeds by key; a layer missing here uses its key as the seed. */
   layers?: Record<string, { seed: string }>;
   holdout?: Holdout | null;
@@ -325,6 +382,11 @@ export interface ExposureEvent {
   /** Unix ms. */
   ts: number;
   url?: string;
+  /**
+   * Where the visit came from: the referrer's origin (no path, no query), `''` for a direct
+   * visit; absent when unknown. The cloud derives the visitor's channel and source from it.
+   */
+  ref?: string;
 }
 
 export interface GoalEvent {
@@ -338,7 +400,61 @@ export interface GoalEvent {
   props?: Record<string, unknown>;
 }
 
-export type SplitHubEvent = ExposureEvent | GoalEvent;
+/** A page view of an analytics property. `ref` is the document referrer, `title` the page title. */
+export interface PageEvent {
+  id: string;
+  type: 'page';
+  prop: string;
+  vid: string;
+  sid: string;
+  ts: number;
+  url: string;
+  title?: string;
+  ref?: string;
+}
+
+/** A custom event of an analytics property (`signup`, `Video Played`), with optional props. */
+export interface TrackEvent {
+  id: string;
+  type: 'event';
+  prop: string;
+  name: string;
+  vid: string;
+  sid: string;
+  ts: number;
+  url?: string;
+  props?: Record<string, unknown>;
+}
+
+/**
+ * Time on page and scroll depth for the page just left, sent on route change and page hide.
+ * `ms`: visible time on that page (0..3,600,000); `scroll`: deepest scroll, percent (0..100). Not billed.
+ */
+export interface EngageEvent {
+  id: string;
+  type: 'engage';
+  prop: string;
+  vid: string;
+  sid: string;
+  ts: number;
+  url: string;
+  ms: number;
+  scroll: number;
+}
+
+/** Ties the anonymous visitor to the app's user id (1..128 characters), with flat traits up to 4 KB. Not billed. */
+export interface IdentifyEvent {
+  id: string;
+  type: 'identify';
+  prop: string;
+  vid: string;
+  sid: string;
+  ts: number;
+  uid: string;
+  traits?: Record<string, string | number | boolean>;
+}
+
+export type SplitHubEvent = ExposureEvent | GoalEvent | PageEvent | TrackEvent | EngageEvent | IdentifyEvent;
 
 export interface EventBatch {
   project: string;

@@ -40,7 +40,8 @@ export interface AttributedCounts extends VariantCounts {
 /** The shape of an event the rule needs. */
 export interface AttributionEvent {
   id: string;
-  type: 'exposure' | 'goal';
+  /** Analytics rows (`page`, `event`, `engage`, `identify`) are ignored. */
+  type: 'exposure' | 'goal' | 'page' | 'event' | 'engage' | 'identify';
   experiment: string | null;
   variant: string | null;
   goal: string | null;
@@ -63,7 +64,7 @@ export function attributeVariants(events: Iterable<AttributionEvent>, experiment
       if (e.experiment !== experiment || !e.variant) continue;
       const prev = first.get(e.visitorId);
       if (prev === undefined || e.ts < prev.ts || (e.ts === prev.ts && e.variant < prev.variant)) first.set(e.visitorId, { variant: e.variant, ts: e.ts });
-    } else if (e.goal === goal) {
+    } else if (e.type === 'goal' && e.goal === goal) {
       const key = `${e.visitorId}\u0000${e.ts - (e.ts % DAY_MS)}`;
       const list = goals.get(key) ?? [];
       list.push(e);

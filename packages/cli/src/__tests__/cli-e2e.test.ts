@@ -74,13 +74,13 @@ const RESULTS = {
   voice: { scenario: 'early_leader', advice: 'wait', line: 'bold is ahead at +10.0%, too early to be sure.' },
   display: {
     label: 'TOO EARLY',
-    lines: ['bold is ahead at +10.0%, too early to be sure.', 'About 6 more days to a verdict at this traffic.', 'Data ★☆☆☆☆ 1/5', '  ✗ Running for a full week', '· Split check skipped for this test.'],
+    lines: ['bold is ahead at +10.0%, too early to be sure.', 'About 6 more days to a verdict at this traffic.', 'Data ★☆☆☆☆ 1/5', '  ✗ Running for a full week', '· Split check skipped for this experiment.'],
   },
   verdict: {
     status: 'insufficient_sample',
     message: 'Too early to call.',
     winner: null,
-    notes: ['Split check skipped for this test.'],
+    notes: ['Split check skipped for this experiment.'],
     srm: null,
     comparisons: [{ variant: 'bold', baseline: 'control', relativeLift: 0.1, probabilityToBeat: 0.8, pValue: 0.01, ci: { low: -0.01, high: 0.03 }, sequential: { pValue: 0.2, ci: { low: -0.02, high: 0.04 } } }],
     sample: { variants: [{ variant: 'control', exposures: 100, conversions: 10 }, { variant: 'bold', exposures: 100, conversions: 11 }], totalExposures: 200, neededPerVariant: 900, quality: 'ok', goodSample: 5000, minExposuresPerVariant: 100, minTotalConversions: 50, stars: 1, checks: [{ key: 'minimum', met: true, label: 'At least 100 visitors per variant and 50 conversions' }, { key: 'week', met: false, label: 'Running for a full week' }] },
@@ -245,7 +245,7 @@ describe('results and status --json', () => {
     expect(r.stdout).toMatch(/Too early to call\.\r?\n.*bold.*\+10\.0%/);
     expect(r.stdout.match(/too early to be sure/g)).toHaveLength(1);
     expect(r.stdout).toContain('About 6 more days to a verdict');
-    expect(r.stdout).toContain('Split check skipped for this test.');
+    expect(r.stdout).toContain('Split check skipped for this experiment.');
     expect(r.stdout).toContain('Data ★☆☆☆☆ 1/5');
     expect(r.stdout).toContain('✗ Running for a full week');
     expect(r.stdout).toContain('0.2000');
@@ -368,9 +368,22 @@ describe('metrics, layers, holdout, archive, scopes', () => {
     expect(src).toContain("metrics: { secondary: ['pricing'], guardrails: [{ goal: 'refunds', worse: 'higher' }] },");
     expect(src).toContain("layer: { key: 'checkout', range: [0, 50] },");
     expect(src).toContain('layers: { checkout: {} },');
-    expect((await run(dir, ['create', '--kind', 'component', '--id', 'y', '--goal', 'signup', '--guardrail', 'nope', '--yes'])).json.code).toBe('GOAL_NOT_FOUND');
+    expect((await run(dir, ['create', '--kind', 'component', '--id', 'y', '--goal', 'signup', '--guardrail', 'no?pe', '--yes'])).json.code).toBe('INVALID_FLAG');
+    expect((await run(dir, ['create', '--kind', 'component', '--id', 'y', '--goal', 'signup', '--secondary', 'Signup', '--yes'])).json.code).toBe('INVALID_FLAG');
     expect((await run(dir, ['create', '--kind', 'component', '--id', 'y', '--goal', 'signup', '--guardrail', 'refunds:up', '--yes'])).json.code).toBe('INVALID_FLAG');
     expect((await run(dir, ['create', '--kind', 'component', '--id', 'y', '--layer', 'checkout:60-40', '--yes'])).json.code).toBe('INVALID_FLAG');
+  }, 60_000);
+
+  it('create takes any event name as the goal, without declaring it first', async () => {
+    const dir = scratch('event-goal');
+    const r = await run(dir, ['create', '--kind', 'value', '--id', 'player', '--variants', 'control,big', '--goal', 'Video Played', '--guardrail', 'refund_requested', '--json', '--yes']);
+    expect(r.code).toBe(0);
+    expect(r.json).toMatchObject({ experiment: 'player', goal: 'video-played' });
+    expect(String(r.json.goalNote)).toContain("track('Video Played')");
+    const src = readFileSync(join(dir, 'splithub.config.ts'), 'utf8');
+    expect(src).toContain("goal: 'Video Played',");
+    expect((await run(dir, ['create', '--kind', 'value', '--id', 'z', '--variants', 'control,b', '--goal', 'signup', '--json', '--yes'])).json.goalNote).toBeUndefined();
+    expect((await run(dir, ['create', '--kind', 'value', '--id', 'w', '--goal', '<b>', '--json', '--yes'])).json.code).toBe('INVALID_FLAG');
   }, 60_000);
 
   it('holdout set / off edits the config', async () => {

@@ -25,7 +25,7 @@ export async function requestPlan(flags: Flags, baseline: number, mde: number, v
   try {
     return await fetchPlan(target, { baseline, mde, variants });
   } catch (error) {
-    if (error instanceof CliError && error.code === 'UNREACHABLE') fail('UNREACHABLE', `Planning a test needs SplitHub Cloud, and we can't reach ${target.url} right now.`, 'Check your connection and try again. No account needed.');
+    if (error instanceof CliError && error.code === 'UNREACHABLE') fail('UNREACHABLE', `Planning an experiment needs SplitHub Cloud, and we can't reach ${target.url} right now.`, 'Check your connection and try again. No account needed.');
     if (error instanceof CliError && error.code === 'API_ERROR') fail('INVALID_FLAG', error.message, error.hint);
     throw error;
   }

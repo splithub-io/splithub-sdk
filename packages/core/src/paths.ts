@@ -30,3 +30,23 @@ export function redirectTarget(to: string, currentHref: string): URL {
   if (!target.hash) target.hash = current.hash;
   return target;
 }
+
+/**
+ * Where a visit came from, as an exposure carries it: the referrer's origin only (never its path
+ * or query), `''` for a visit with no referrer (direct), and `undefined` when it says nothing
+ * about the source: a link from the same site, or a value that is not a URL.
+ */
+export function referrerOrigin(referrer: string | null | undefined, siteHost: string | null | undefined): string | undefined {
+  if (!referrer) return '';
+  let url: URL;
+  try {
+    url = new URL(referrer);
+  } catch {
+    return undefined;
+  }
+  const host = url.hostname.toLowerCase().replace(/^www\./, '');
+  const site = (siteHost ?? '').toLowerCase().replace(/:\d+$/, '').replace(/^www\./, '');
+  if (!host || host === site) return undefined;
+  // `android-app://com.google.android.gm` has no web origin; protocol + host keeps the app's name.
+  return `${url.protocol}//${url.host}`.slice(0, 300);
+}

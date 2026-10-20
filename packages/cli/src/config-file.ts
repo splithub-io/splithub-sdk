@@ -428,6 +428,75 @@ export function setTopLevel(source: string, name: string, valueText: string | nu
   return appendProperty(source, masked, open, close, () => `${k(name)}: ${valueText}`);
 }
 
+// ---------------------------------------------------------------------------
+// Analytics properties: `properties: { site: { goals: [...] } }` at the top level
+// ---------------------------------------------------------------------------
+
+export interface NewProperty {
+  key: string;
+  status?: 'running' | 'paused';
+  name?: string;
+  description?: string;
+  goals?: string[];
+}
+
+export function renderProperty(p: NewProperty): string {
+  const parts: string[] = [];
+  if (p.status && p.status !== 'running') parts.push(`status: ${q(p.status)}`);
+  if (p.name) parts.push(`name: ${q(p.name)}`);
+  if (p.goals?.length) parts.push(`goals: [${p.goals.map(q).join(', ')}]`);
+  if (p.description) parts.push(`description: ${q(p.description)}`);
+  return `${k(p.key)}: { ${parts.join(', ')}${parts.length ? ' ' : ''}}`.replace('{ }', '{}');
+}
+
+/** The `properties: { ... }` object, created empty when the config has none. */
+function locateProperties(source: string): { source: string } & Located {
+  let src = source;
+  let root = locateRoot(src);
+  let entry = root.entries.find((e) => e.key === 'properties');
+  if (!entry) {
+    src = appendProperty(src, root.masked, root.open, root.close, () => 'properties: {}');
+    root = locateRoot(src);
+    entry = root.entries.find((e) => e.key === 'properties')!;
+  }
+  if (entry.kind !== 'object') fail('CONFIG_UNSAFE', '`properties` in the config is not written inline, so the CLI cannot edit it safely.', 'Edit the properties where they are defined.');
+  return { source: src, masked: root.masked, open: entry.valueStart, close: entry.valueEnd - 1, entries: objectEntries(src, root.masked, entry.valueStart, entry.valueEnd - 1) };
+}
+
+function propertyEntry(source: string, key: string): Located & { entry: Entry } {
+  const root = locateRoot(source);
+  const props = root.entries.find((e) => e.key === 'properties');
+  if (!props || props.kind !== 'object') fail('PROPERTY_NOT_FOUND', `There's no analytics property "${key}" in the config.`, 'See the ids with npx splithub analytics.');
+  const entries = objectEntries(source, root.masked, props.valueStart, props.valueEnd - 1);
+  const entry = entries.find((e) => e.key === key);
+  if (!entry) fail('PROPERTY_NOT_FOUND', `There's no analytics property "${key}" in the config.`, 'See the ids with npx splithub analytics.');
+  return { masked: root.masked, open: props.valueStart, close: props.valueEnd - 1, entries, entry };
+}
+
+export function insertProperty(source: string, p: NewProperty): string {
+  const loc = locateProperties(source);
+  if (loc.entries.some((x) => x.key === p.key)) fail('PROPERTY_EXISTS', `There's already an analytics property "${p.key}".`, 'Pick another id.');
+  return appendProperty(loc.source, loc.masked, loc.open, loc.close, () => renderProperty(p));
+}
+
+export function setPropertyStatus(source: string, key: string, status: 'running' | 'paused'): string {
+  const { masked, entry } = propertyEntry(source, key);
+  if (entry.kind !== 'object') fail('CONFIG_UNSAFE', `"${key}" points to a value defined elsewhere, so the CLI can't edit it safely.`, `Set status: '${status}' by hand.`);
+  const inner = objectEntries(source, masked, entry.valueStart, entry.valueEnd - 1);
+  const field = inner.filter((x) => x.key === 'status').pop();
+  if (field) {
+    const raw = masked.slice(field.valueStart, field.valueEnd);
+    if (!/^(['"])\s*\1$/.test(raw)) fail('CONFIG_UNSAFE', `The status of "${key}" isn't a plain string, so the CLI can't change it safely.`, `Set status: '${status}' by hand.`);
+    const quote = raw[0]!;
+    return source.slice(0, field.valueStart) + `${quote}${status}${quote}` + source.slice(field.valueEnd);
+  }
+  return appendProperty(source, masked, entry.valueStart, entry.valueEnd - 1, () => `status: ${q(status)}`);
+}
+
+export function removeProperty(source: string, key: string): string {
+  return removeEntry(source, propertyEntry(source, key).entry);
+}
+
 /** Make sure `layers: { <key>: {} }` declares a layer. */
 export function ensureLayer(source: string, key: string): string {
   const { masked, open, close, entries } = locateRoot(source);

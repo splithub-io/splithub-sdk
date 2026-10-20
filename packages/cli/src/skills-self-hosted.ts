@@ -20,7 +20,10 @@ Two ways to own the data:
   \`POST /events\` from the SDK and answers \`GET /status\`, \`GET /results/<id>\` for the CLI
   (\`npx splithub status\` talks to the local dev server, or \`--url https://your.app/api/splithub\`).
   Self-hosted reads are raw numbers per variant (\`variants[]\`: visitors, conversions, rate, revenue)
-  with \`analysis: { available: false }\`. Verdicts, data-quality stars and recommendations come with SplitHub Cloud.
+  with \`analysis: { available: false }\`. Verdicts, data-quality stars and recommendations come with SplitHub Cloud,
+  and so do slices, breakdowns, timelines and raw experiment events (\`results --from/--filter/--by\` answer \`NOT_CLOUD\` here).
+  With an analytics property the SDK sends \`track()\` as one \`event\` row and a page as one \`page\` row; the handler
+  stores the goal rows experiments need next to them (goals of the config's experiments only), so the store sees goals as before.
 - Store: an object with three methods (below). Ready-made: \`@splithub/adapter-sqlite\`
   (Node 22.13+, \`node:sqlite\`, zero setup) and \`@splithub/adapter-d1\` (Cloudflare D1).
   \`npx splithub init --mode self --db postgres|mysql|custom\` writes \`splithub/store.ts\` with a

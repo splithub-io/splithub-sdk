@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts';
-import { mvtVariants, type ExperimentKind, type ExperimentStatus } from '@splithub/core';
+import { EVENT_NAME_PATTERN, goalKeyFor, mvtVariants, type ExperimentKind, type ExperimentStatus } from '@splithub/core';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { ensureLayer, hasExperiment, insertExperiment, loadConfig, readSource, writeConfigChecked, type NewExperiment } from '../config-file';
@@ -155,7 +155,7 @@ export async function create(flags: Flags): Promise<void> {
   if (kind === 'redirect') {
     if (!match) {
       if (!interactive) fail('USAGE', 'A redirect experiment needs the path it runs on.', 'Pass --match /path.');
-      match = await ask(p.text({ message: 'Path to run the redirect test on', initialValue: '/' }));
+      match = await ask(p.text({ message: 'Path to run the redirect experiment on', initialValue: '/' }));
     }
     for (const k of variantKeys) {
       if (tos[k] === undefined) {
@@ -165,6 +165,7 @@ export async function create(flags: Flags): Promise<void> {
     }
   }
 
+  // The goal is any event name: one not declared in goals becomes an event goal when the config loads.
   let goal = str(flags.goal);
   const goals = config.goals.map((g) => g.key);
   if (!goal) {
@@ -172,17 +173,22 @@ export async function create(flags: Flags): Promise<void> {
     else if (goals.length > 0) {
       goal = await ask(
         p.select<string>({
-          message: 'Goal (conversion) to optimise',
-          options: [...goals.map((g) => ({ value: g, label: g })), { value: '', label: 'none yet (add later)' }],
+          message: 'Goal to optimise',
+          options: [...goals.map((g) => ({ value: g, label: g })), { value: '?', label: 'another event' }, { value: '', label: 'none yet (add later)' }],
         })
       );
+      if (goal === '?') goal = await ask(p.text({ message: 'Event name', placeholder: 'signup', validate: (v) => (v && !EVENT_NAME_PATTERN.test(v) ? 'Letters, digits, spaces and _ . : / -, up to 64 characters.' : undefined) }));
+      if (!goal) goal = undefined;
+    } else {
+      goal = await ask(p.text({ message: 'Goal: the event this experiment should raise (blank for later)', placeholder: 'signup', validate: (v) => (v && !EVENT_NAME_PATTERN.test(v) ? 'Letters, digits, spaces and _ . : / -, up to 64 characters.' : undefined) }));
       if (!goal) goal = undefined;
     }
   }
-  if (goal && !goals.includes(goal)) fail('GOAL_NOT_FOUND', `There's no goal "${goal}" in the config.`, `Declared goals: ${goals.join(', ') || 'none'}. Add it to goals first.`);
-  const extras = parseExtras(flags, goals, goal);
+  if (goal) checkEventName(goal, '--goal');
+  const isNewGoal = goal ? !goals.includes(goalKeyFor(config.goals, goal) ?? '') : false;
+  const extras = parseExtras(flags, config.goals, goal);
 
-  // Running by default: the test goes live with the deploy that ships its code, first page views included.
+  // Running by default: the experiment goes live with the deploy that ships its code, first page views included.
   const status = (str(flags.status) as ExperimentStatus | undefined) ?? 'running';
   if (!['draft', 'running', 'paused'].includes(status)) fail('INVALID_FLAG', `A new experiment can't be "${status}".`, 'Use --status running or --status draft.');
   const description = str(flags.description);
@@ -237,18 +243,20 @@ export async function create(flags: Flags): Promise<void> {
         ? `<Experiment id="${id}">\n${variantKeys.map((k) => `  <Variant name="${k}"><${componentNames[k]} /></Variant>`).join('\n')}\n</Experiment>`
         : `// handled by @splithub/next middleware on ${match}; no code needed`;
 
-  const result = { experiment: id, kind, status, variants: experiment.variants, goal: goal ?? null, traffic: limits.traffic ?? 1, maxVisitors: limits.maxExposures ?? null, minDays: limits.minDays ?? null, goodSample: limits.goodSample ?? null, schedule: limits.schedule ?? null, configFile: relative(project.root, project.configFile), files, snippet };
+  const goalKey = goal ? goalKeyFor(config.goals, goal) : null;
+  const result = { experiment: id, kind, status, variants: experiment.variants, goal: goalKey, traffic: limits.traffic ?? 1, maxVisitors: limits.maxExposures ?? null, minDays: limits.minDays ?? null, goodSample: limits.goodSample ?? null, schedule: limits.schedule ?? null, configFile: relative(project.root, project.configFile), files, snippet };
   if (json) {
     const cloudMode = /mode\s*:\s*['"]cloud['"]/.test(readSource(project.configFile));
-    // Agents read this JSON: the hand-off line makes sure the human learns the test is not live yet.
+    // Agents read this JSON: the hand-off line makes sure the human learns the experiment is not live yet.
     const handoff =
       status === 'draft'
         ? `${id} is a draft: visitors do not see it and nothing is recorded until it is started. Tell the user and ask whether to start it now (npx splithub start ${id}).`
         : `${id} is running in the config: it goes live for visitors when this code is deployed${cloudMode ? ' and pushed; local development never sends events to the cloud' : ''}. Tell the user, and that npx splithub pause ${id} or Pause in the dashboard holds it.`;
     const nextStep = cloudMode ? `npx splithub push  # the cloud does not know about ${id} until you push` : status === 'draft' ? `npx splithub start ${id}` : 'deploy the app';
-    printJson({ ...result, nextStep, handoff });
+    printJson({ ...result, ...(isNewGoal && goal ? { goalNote: newGoalNote(goal) } : {}), nextStep, handoff });
     return;
   }
+  if (isNewGoal && goal) p.log.info(newGoalNote(goal));
   p.note(snippet, kind === 'redirect' ? 'Nothing to wire' : 'Wire it in your code');
   if (files.length) p.note(files.join('\n'), 'Scaffolded');
   const cloud = /mode\s*:\s*['"]cloud['"]/.test(readSource(project.configFile));
@@ -265,7 +273,7 @@ export function parseWeights(raw: string | undefined, count: number): number[] {
   const weights = raw.split(',').map((w) => Number(w.trim()));
   if (weights.length !== count) fail('INVALID_FLAG', `--weights has ${weights.length} numbers for ${count} variants.`, 'Give one weight per variant, in the same order: --weights 50,50.');
   if (weights.some((w) => !Number.isFinite(w) || w < 0)) fail('INVALID_FLAG', `--weights "${raw}" has a value that isn't a number of 0 or more.`);
-  if (weights.every((w) => w === 0)) fail('INVALID_FLAG', 'All weights are 0, so nobody would see the test.');
+  if (weights.every((w) => w === 0)) fail('INVALID_FLAG', 'All weights are 0, so nobody would see the experiment.');
   return weights;
 }
 
@@ -283,7 +291,7 @@ export function parseLimits(flags: Flags): Limits {
   const traffic = str(flags.traffic);
   if (traffic !== undefined) {
     const t = Number(traffic.replace(/%$/, ''));
-    if (!Number.isFinite(t) || t <= 0 || t > 100) fail('INVALID_FLAG', `--traffic "${traffic}" must be a percent between 0 and 100.`, 'For example --traffic 50 puts half of the visitors in the test.');
+    if (!Number.isFinite(t) || t <= 0 || t > 100) fail('INVALID_FLAG', `--traffic "${traffic}" must be a percent between 0 and 100.`, 'For example --traffic 50 puts half of the visitors in the experiment.');
     if (t !== 100) out.traffic = Math.round(t * 100) / 10000;
   }
   const max = str(flags['max-visitors']);
@@ -318,11 +326,20 @@ export function parseLimits(flags: Flags): Limits {
   return out;
 }
 
+function checkEventName(name: string, flag: string): void {
+  if (!EVENT_NAME_PATTERN.test(name) || !goalKeyFor([], name)) fail('INVALID_FLAG', `${flag} "${name}" is not an event name.`, 'Use letters, digits, spaces and _ . : / -, up to 64 characters (signup, Video Played).');
+}
+
+/** What the user reads when the goal is an event no goal declared yet. */
+function newGoalNote(name: string): string {
+  return `"${name}" becomes a goal: every track('${name}') now counts for this experiment.`;
+}
+
 /**
  * --secondary a,b (goals to watch) · --guardrail refunds:higher,errors (goals that must not get worse;
  * :higher when a rise is bad, default :lower) · --layer key:0-50 (mutual exclusion, buckets [start, end)).
  */
-export function parseExtras(flags: Flags, goals: string[], primary: string | undefined): Pick<NewExperiment, 'metrics' | 'layer'> {
+export function parseExtras(flags: Flags, goals: Array<{ key: string; event?: string }>, primary: string | undefined): Pick<NewExperiment, 'metrics' | 'layer'> {
   const out: Pick<NewExperiment, 'metrics' | 'layer'> = {};
   const split = (v: unknown) => list(v).flatMap((x) => x.split(',')).map((x) => x.trim()).filter(Boolean);
   const secondary = split(flags.secondary);
@@ -334,8 +351,8 @@ export function parseExtras(flags: Flags, goals: string[], primary: string | und
   const named = [...secondary, ...guardrails.map((g) => (typeof g === 'string' ? g : g.goal))];
   if (named.length) {
     if (!primary) fail('USAGE', 'Secondary metrics and guardrails need a primary goal.', 'Pass --goal too.');
-    for (const g of named) if (!goals.includes(g)) fail('GOAL_NOT_FOUND', `There's no goal "${g}" in the config.`, `Declared goals: ${goals.join(', ') || 'none'}. Add it to goals first.`);
-    const all = [primary, ...named];
+    for (const g of named) checkEventName(g, '--secondary / --guardrail');
+    const all = [primary, ...named].map((g) => goalKeyFor(goals, g));
     if (new Set(all).size !== all.length) fail('INVALID_FLAG', 'A goal is listed twice across --goal, --secondary and --guardrail.');
     out.metrics = { ...(secondary.length ? { secondary } : {}), ...(guardrails.length ? { guardrails } : {}) };
   }
@@ -344,7 +361,7 @@ export function parseExtras(flags: Flags, goals: string[], primary: string | und
     const m = /^([a-z0-9][a-z0-9_-]{0,63}):(\d{1,3})-(\d{1,3})$/.exec(layer);
     const start = Number(m?.[2]);
     const end = Number(m?.[3]);
-    if (!m || !(start < end) || end > 100) fail('INVALID_FLAG', `--layer "${layer}" must look like key:start-end with 0 <= start < end <= 100.`, 'For example --layer checkout:0-50; another test in checkout:50-100 never shares a visitor.');
+    if (!m || !(start < end) || end > 100) fail('INVALID_FLAG', `--layer "${layer}" must look like key:start-end with 0 <= start < end <= 100.`, 'For example --layer checkout:0-50; another experiment in checkout:50-100 never shares a visitor.');
     out.layer = { key: m[1]!, range: [start, end] };
   }
   return out;

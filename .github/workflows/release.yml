@@ -19,6 +19,11 @@ jobs:
         run: |
           version="${TAG#v}"
           {
+            # The version's section of CHANGELOG.md, without its heading.
+            if [ -f CHANGELOG.md ]; then
+              awk -v v="## $version" '$0 == v { on = 1; next } /^## / { on = 0 } on' CHANGELOG.md
+              echo
+            fi
             echo "All SplitHub packages are on npm at $version."
             echo
             echo '```bash'

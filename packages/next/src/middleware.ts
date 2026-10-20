@@ -14,6 +14,7 @@ import {
   parseForceParam,
   parseUserAgent,
   redirectTarget,
+  referrerOrigin,
   SDK_VERSION,
   type EventBatch,
   type ExposureEvent,
@@ -124,6 +125,10 @@ export function splithubMiddleware(baseConfig: SplitHubConfig, options: Middlewa
     // Bots never reach here with a variant: assign gives them the control without one.
     const cloudDev = config.storage.mode === 'cloud' && isDevEnvironment();
     const events: ExposureEvent[] = [];
+    // This request is the page load, so its Referer is where the visitor came from (the ingest
+    // only sees this server). Same-site navigation says nothing about the source: left out.
+    const ref = referrerOrigin(request.headers.get('referer'), request.nextUrl.host);
+    const refField = ref === undefined ? {} : { ref };
     if (decision) {
       if (decision.to) {
         const target = redirectTarget(decision.to, request.nextUrl.href);
@@ -142,13 +147,13 @@ export function splithubMiddleware(baseConfig: SplitHubConfig, options: Middlewa
       const record = !cloudDev && (decision.reason === 'assigned' || (decision.reason === 'dev' && config.storage.mode === 'self'));
       if (trackRedirects && record && request.cookies.get(exposureCookie)?.value !== decision.variant) {
         cookiesToSet.push({ name: exposureCookie, value: decision.variant });
-        events.push({ id: newId('e_'), type: 'exposure', exp: decision.experiment, var: decision.variant, vid: visitorId, sid: 'edge', ts: Date.now(), url: pathname });
+        events.push({ id: newId('e_'), type: 'exposure', exp: decision.experiment, var: decision.variant, vid: visitorId, sid: 'edge', ts: Date.now(), url: pathname, ...refField });
       }
     }
     const group = reachedTest ? holdoutGroup(config, visitorId) : null;
     if (group && trackRedirects && !cloudDev && request.cookies.get(`sh_x_${HOLDOUT_KEY}`)?.value !== group) {
       cookiesToSet.push({ name: `sh_x_${HOLDOUT_KEY}`, value: group });
-      events.push({ id: newId('e_'), type: 'exposure', exp: HOLDOUT_KEY, var: group, vid: visitorId, sid: 'edge', ts: Date.now(), url: pathname });
+      events.push({ id: newId('e_'), type: 'exposure', exp: HOLDOUT_KEY, var: group, vid: visitorId, sid: 'edge', ts: Date.now(), url: pathname, ...refField });
     }
     if (events.length) {
       const target = ingestTarget(config, request.nextUrl.origin);

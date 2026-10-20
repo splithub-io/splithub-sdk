@@ -68,8 +68,10 @@ export async function doctor(flags: Flags): Promise<void> {
     if (exp.status === 'running' && exp.variants.every((v) => v.weight === 0)) add('error', `${label}: all weights are 0`);
   }
   for (const goal of config.goals) {
-    if (goal.type === 'event' && grepFiles(files, `'${goal.key}'`).length + grepFiles(files, `"${goal.key}"`).length === 0) {
-      add('warn', `goal "${goal.key}": track('${goal.key}') is never called`);
+    // An event goal is sent as its key or, when it has one, as its event name ('Video Played').
+    const names = [goal.key, ...(goal.event ? [goal.event] : [])];
+    if (goal.type === 'event' && names.every((n) => grepFiles(files, `'${n}'`).length + grepFiles(files, `"${n}"`).length === 0)) {
+      add('warn', `goal "${goal.key}": track('${goal.event ?? goal.key}') is never called`);
     }
   }
 

@@ -20,6 +20,7 @@ export interface CliErrorBody {
   error: string;
   code: string;
   hint?: string;
+  scope?: string;
 }
 
 export interface CliResult {

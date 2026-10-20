@@ -13,5 +13,6 @@ import { boot } from './index';
   // Events go to the same origin the script was loaded from (cloud or self-hosted cloud).
   const origin = /^(https?:\/\/[^/]+)/.exec(src)?.[1];
   const endpoint = el?.dataset.endpoint ?? (origin ? `${origin}/v1/events` : undefined);
-  void boot({ key, endpoint, redirects: el?.dataset.redirects !== undefined, noHold: el?.dataset.hold === 'off', holdMs: el?.dataset.hold ? Number(el.dataset.hold) || undefined : undefined });
+  const property = el?.dataset.property;
+  void boot({ key, endpoint, ...(property ? { property } : {}), redirects: el?.dataset.redirects !== undefined, noHold: el?.dataset.hold === 'off', holdMs: el?.dataset.hold ? Number(el.dataset.hold) || undefined : undefined });
 })();

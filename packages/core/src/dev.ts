@@ -39,11 +39,11 @@ export function explainAssignment(experiment: Experiment | undefined, a: Assignm
     return;
   }
   if (a.reason === 'holdout') {
-    devNote('holdout', `This visitor is in the holdout, so every test shows its control. Open ?sh_force=${key}:${experiment.variants[1]?.key ?? 'variant'} to see a variant.`);
+    devNote('holdout', `This visitor is in the holdout, so every experiment shows its control. Open ?sh_force=${key}:${experiment.variants[1]?.key ?? 'variant'} to see a variant.`);
     return;
   }
   if (a.reason === 'layer') {
-    devNote(`${key}:layer`, `"${key}" shares layer "${experiment.layer?.key}" with other tests and this visitor's bucket belongs to another one, so they see the control.`);
+    devNote(`${key}:layer`, `"${key}" shares layer "${experiment.layer?.key}" with other experiments and this visitor's bucket belongs to another one, so they see the control.`);
     return;
   }
   if (a.reason !== 'not_running') return;

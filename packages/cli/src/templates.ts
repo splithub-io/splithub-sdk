@@ -7,11 +7,12 @@ export function configTemplate(project: string, mode: 'self' | 'cloud', key?: st
 export default defineConfig({
   project: '${project}',
   storage: ${storage},
-  // Drafts behave like running tests while you develop (next dev, vite); production ignores them.
+  // Drafts behave like running experiments while you develop (next dev, vite); production ignores them.
   runDraftsInDev: true,
 
   goals: {
-    // call track('signup') where the conversion happens
+    // events you mark as goals: call track('signup') where it happens.
+    // An experiment's goal may also be any other event name you track().
     signup: { type: 'event' },
   },
 
@@ -82,18 +83,23 @@ export const AGENTS_SECTION = `
 
 This project uses SplitHub (\`@splithub/react\`). Experiments are declared in
 \`splithub.config.ts\` and rendered with \`<Experiment id>\` / \`useVariant(id)\` /
-\`useValue(id)\`. Conversions: \`useTrack()\` then \`track('<goal>')\`.
+\`useValue(id)\`. Events: \`useTrack()\` then \`track('<event name>')\`; an experiment's goal is any event name.
 
 - Not connected yet? \`npx splithub init --mode cloud\` (or \`npx splithub login\`) prints a link: show it to the user, they sign in and approve, the CLI gets the keys. Never ask the user to paste keys.
-- New experiment: \`npx splithub create --kind value|component|redirect|mvt --id <key> --variants control,<other> --goal <goal> --yes\`
+- New experiment: \`npx splithub create --kind value|component|redirect|mvt --id <key> --variants control,<other> --goal <event name> --yes\`
   then wire it in code (value → \`useValue\`, component → \`<Experiment>\` with one \`<Variant>\` per key, redirect → nothing,
   mvt → \`--factor name=level:value,…\` and \`const { a, b } = useValue(id)\`).
 - Results: \`npx splithub results <id> --json\`; report \`verdict.message\` verbatim, never call a winner from raw rates.
 - Lifecycle: \`npx splithub start|pause|finish <id>\`. Check setup: \`npx splithub doctor\`.
-- A \`finished\` test still has all its variants in the code: report the verdict, ask which variant to keep and whether to
-  remove the test from the code, then follow .claude/skills/splithub-ship/SKILL.md. Never delete test code unasked.
-- \`create\` writes \`status: 'running'\`: the test goes live when the code is deployed. Always tell the user that, and that
+- A \`finished\` experiment still has all its variants in the code: report the verdict, ask which variant to keep and whether to
+  remove the experiment from the code, then follow .claude/skills/splithub-ship/SKILL.md. Never delete experiment code unasked.
+- \`create\` writes \`status: 'running'\`: the experiment goes live when the code is deployed. Always tell the user that, and that
   \`npx splithub pause <id>\` or Pause in the dashboard holds it. Never change \`seed\` of a running experiment.
+- Analytics: set it up with \`npx splithub analytics connect --json\` (names the property on the provider), read it with
+  \`npx splithub analytics <property> --json\`; also \`funnel\`, \`paths\`, \`retention\`, \`realtime\`, \`export\` (SplitHub Cloud).
+  Details: .claude/skills/splithub-analytics/SKILL.md
+- Notes, alerts, links, domains (SplitHub Cloud): \`npx splithub notes add "<what shipped>"\` when you ship, \`npx splithub alerts\` (rules, e.g.
+  \`alerts add usage --every 1000\`), \`npx splithub links\` (short links), \`npx splithub domains\`. Humans: \`npx splithub\` opens the menu.
 - Config ships to the browser: no secrets in it. Full rules: .claude/skills/splithub/SKILL.md
 `;
 
