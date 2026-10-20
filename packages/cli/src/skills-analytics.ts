@@ -19,8 +19,9 @@ There are no variants and no verdicts: reports are counts.
    added | already | other (another property is named there: ask, then \`--force\`) | none | many (add \`snippets.provider\`
    or \`snippets.script\` yourself), plus \`snippets.track\` and \`next\`.
    By hand: \`npx splithub analytics create --name "Marketing site" --json\` writes \`properties: { 'sh-x1h78w': { name: … } }\`
-   into \`splithub.config.ts\` (self-hosted projects keep their properties there). Cloud mode: \`npx splithub push\` after
-   either. A property made in the dashboard needs no push; its id is on its page.
+   into \`splithub.config.ts\` (self-hosted projects keep their properties there). Cloud mode: both also create it in the
+   cloud at once (\`live: applied\`), so no push is needed; when \`live\` names a missing API key, \`npx splithub login\` and run it
+   again, or \`npx splithub push\`. A property made in the dashboard needs no push either; its id is on its page.
 2. Send events. Events go only to a property named by its id, never to a guess:
    - SDK: \`<SplitHubProvider config={config} property="sh-x1h78w">\`: a pageview on load and on every client-side route change.
    - Events: one call, \`const track = useTrack(); track('Video Played', { id: 3 })\` (or \`client.track(...)\`). Names: letters,

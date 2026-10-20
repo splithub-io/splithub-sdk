@@ -18,7 +18,7 @@ import { loadConfig } from '../config-file';
 import { fail, printJson } from '../errors';
 import { listSourceFiles, requireConfig, type Framework } from '../project';
 import { c } from '../ui';
-import { addProperty } from './analytics';
+import { addProperty, afterAdded, printLive } from './analytics';
 import { str } from './analytics-reports';
 import type { Flags } from './init';
 import { propertyChoices, propertySnippets, type PropertyChoice } from './menu-analytics';
@@ -164,6 +164,7 @@ export async function connect(given: string | undefined, flags: Flags): Promise<
 
   let key = given;
   let created = false;
+  let live = 'skipped';
   if (!key && !name) {
     if (interactive) {
       const picked = await p.select<string>({
@@ -187,7 +188,7 @@ export async function connect(given: string | undefined, flags: Flags): Promise<
       label = typed.trim() || project.name;
     }
     key ??= newPropertyId();
-    await addProperty(key, { ...flags, name: label ?? (given ? undefined : project.name) });
+    live = (await addProperty(key, { ...flags, name: label ?? (given ? undefined : project.name) })).live;
     created = true;
   }
 
@@ -195,12 +196,13 @@ export async function connect(given: string | undefined, flags: Flags): Promise<
   const publicKey = typeof (config.storage as { key?: unknown }).key === 'string' && String((config.storage as { key?: unknown }).key).startsWith('pk_') ? String((config.storage as { key: string }).key) : null;
   const snippets = trackSnippets(project.framework, key, publicKey);
   const configFile = relative(project.root, project.configFile);
-  const next = [...(created && cloud ? ['npx splithub push'] : []), 'deploy the app (development never sends to the cloud)', cloud ? `npx splithub analytics realtime ${key}` : `npx splithub analytics ${key}`];
+  const next = [...(created ? afterAdded(cloud, live) : []), 'deploy the app (development never sends to the cloud)', cloud ? `npx splithub analytics realtime ${key}` : `npx splithub analytics ${key}`];
   if (flags.json)
     return printJson({
       property: key,
       created,
       configFile: created ? configFile : null,
+      live: created ? live : null,
       wired,
       snippets,
       next,
@@ -208,6 +210,7 @@ export async function connect(given: string | undefined, flags: Flags): Promise<
 
   const ok = (s: string) => console.log(`${c.green('✔')} ${s}`);
   ok(created ? `property ${c.bold(key)} added to ${c.dim(configFile)}` : `using property ${c.bold(key)}`);
+  if (created) printLive(cloud, live);
   if (wired.status === 'added') ok(`named on the provider in ${c.dim(`${wired.file}:${wired.line}`)}`);
   else if (wired.status === 'already') ok(`already named on the provider in ${c.dim(`${wired.file}:${wired.line}`)}`);
   else if (wired.status === 'other') console.log(c.yellow(`! ${wired.file}:${wired.line} already sends to ${wired.current}. Run again with --force to switch to ${key}.`));

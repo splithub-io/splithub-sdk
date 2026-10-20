@@ -2,6 +2,22 @@
 
 Every package in this repository is released together under one version.
 
+## 0.4.1
+
+### CLI (`npx splithub`)
+
+- **`splithub push` keeps what the file lacks.** Experiments the cloud has from an earlier push (another checkout, an older file) stay as they are and come back as `kept`; `--dry-run` lists them with `=`. `splithub push --prune` removes them, as every push did before. `splithub remove` and `splithub ship` say which one to run.
+- **Adding analytics needs no push.** In cloud mode, `splithub analytics create` and `splithub analytics connect` create the property in the cloud right away (`live: applied`) and write it into `splithub.config.ts`; only without an API key do they still ask for `npx splithub push`. Adding analytics never asks for a push now.
+
+### MCP (`@splithub/mcp`)
+
+- `splithub_push` takes `prune` and answers `kept`.
+- `splithub_property_create` and `splithub_analytics_connect` say so too: deploy, no push.
+
+### SplitHub Cloud
+
+- An analytics property converts a goal by the same rule experiments use: the goal's key, its display name or the slug of the name (`track('video-played')` and `track('Video Played')` both count for `video-played`).
+
 ## 0.4.0
 
 Analytics joins experiments. One install covers both: name an analytics property and the same SDK, the same `track()` and the same visitor feed your reports and your experiments.

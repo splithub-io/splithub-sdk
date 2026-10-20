@@ -34,7 +34,7 @@ Experiments
 Analytics
   splithub analytics connect      pick or create a property and name it on the app's provider (or get the sh.js tag); [<id>] [--name "Site"] [--force]
   splithub analytics [<id>]       every property, or one: visitors, pages, sources, events, goals (--by page|source|channel|country|event|goal|variant --experiment <key>|trait --key <name>, --days 7, --from --to, --filter country=DE, --compare [year|<from>..<to>])
-  splithub analytics create --name "Site"   add a property (id generated, like sh-x1h78w); pause|resume|archive|restore|remove|events <id>
+  splithub analytics create --name "Site"   add a property (id generated, like sh-x1h78w; live in the cloud at once, no push); pause|resume|archive|restore|remove|events <id>
   splithub analytics funnel <id> --steps "page:/,event:Signup,goal:paid"   visitors per step, conversion, drop-off (--within visit|7d|30d, --by <dimension>)
   splithub analytics paths <id> --page /pricing [--prev]   where visitors go next (or came from)
   splithub analytics retention <id>   who comes back, per weekly cohort (--start visit|event:<name>|goal:<key>, --return visit|event:<name>, --period day|week)
@@ -55,6 +55,7 @@ Notes, links, alerts, domains (SplitHub Cloud)
 
 Project
   splithub push [--dry-run]       upload splithub.config.ts to SplitHub Cloud (--dry-run: check and show what would change)
+                                  experiments the cloud has that the file lacks are kept; --prune removes them
                                   a key that already belonged to another experiment stops the push: --replace <keys> (new experiment, old numbers cleared) or --same <keys> (same experiment, numbers stay)
   splithub pull                   show the config stored in the cloud
   splithub report                 status and verdicts as Markdown, raw numbers when self-hosted (used by the GitHub workflow)
@@ -138,6 +139,7 @@ async function main(): Promise<void> {
       project: { type: 'string' },
       keep: { type: 'string' },
       'dry-run': { type: 'boolean', default: false },
+      prune: { type: 'boolean', default: false },
       baseline: { type: 'string' },
       mde: { type: 'string' },
       'github-action': { type: 'boolean', default: false },

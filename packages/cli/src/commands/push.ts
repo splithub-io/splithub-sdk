@@ -7,7 +7,7 @@ import { detectProject, requireConfig } from '../project';
 import { c } from '../ui';
 import type { Flags } from './init';
 
-interface CloudExperiment {
+export interface CloudExperiment {
   key: string;
   kind: 'component' | 'value' | 'redirect' | 'mvt';
   status: 'draft' | 'running' | 'paused' | 'finished';
@@ -35,6 +35,8 @@ interface PushResponse {
   experiments: number;
   /** Experiments created in the dashboard that the local file does not have yet. */
   cloudOnly?: CloudExperiment[];
+  /** Experiments from an earlier push that the file lacks, left in the cloud as they are; `--prune` removes them. */
+  kept?: string[];
 }
 
 /** Write dashboard-created experiments into the local config file. Returns the keys written. */
@@ -93,13 +95,17 @@ type LocalExperiment = SplitHubConfig['experiments'][number];
 export interface ConfigDiff {
   added: string[];
   removed: string[];
+  /** In the cloud only; a push without `--prune` leaves them. */
+  kept: string[];
   changed: Array<{ experiment: string; fields: string[] }>;
 }
 
 /** What a push would change in the cloud, by experiment key. */
-export function configDiff(local: LocalExperiment[], cloud: Array<CloudExperiment & { origin?: string }>): ConfigDiff {
+export function configDiff(local: LocalExperiment[], cloud: Array<CloudExperiment & { origin?: string }>, prune = false): ConfigDiff {
   const added = local.filter((e) => !cloud.some((x) => x.key === e.key)).map((e) => e.key);
-  const removed = cloud.filter((x) => x.origin !== 'dashboard' && !local.some((e) => e.key === x.key)).map((x) => x.key);
+  const missing = cloud.filter((x) => x.origin !== 'dashboard' && !local.some((e) => e.key === x.key)).map((x) => x.key);
+  const removed = prune ? missing : [];
+  const kept = prune ? [] : missing;
   const changed: ConfigDiff['changed'] = [];
   for (const e of local) {
     const x = cloud.find((y) => y.key === e.key);
@@ -112,7 +118,7 @@ export function configDiff(local: LocalExperiment[], cloud: Array<CloudExperimen
     if ((x.traffic ?? 1) !== (e.traffic ?? 1)) fields.push('traffic');
     if (fields.length) changed.push({ experiment: e.key, fields });
   }
-  return { added, removed, changed };
+  return { added, removed, kept, changed };
 }
 
 interface KeyConflict {
@@ -147,6 +153,8 @@ async function cloudFetch(url: string, init: RequestInit): Promise<Response> {
  * Needs a project API key (sk_...) via --token or SPLITHUB_API_KEY. The first
  * push returns the public key (pk_...) which is written into the config's
  * `storage.key` when it is still empty. `--dry-run` only checks and compares.
+ * Experiments the cloud has from an earlier push that the file lacks are kept
+ * unless `--prune`.
  */
 export async function push(flags: Flags): Promise<void> {
   const project = requireConfig();
@@ -160,7 +168,7 @@ export async function push(flags: Flags): Promise<void> {
   const res = await cloudFetch(`${target.url}/config`, {
     method: 'PUT',
     headers: { authorization: `Bearer ${target.token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ config, replace: keyList(flags.replace), same: keyList(flags.same) }),
+    body: JSON.stringify({ config, replace: keyList(flags.replace), same: keyList(flags.same), prune: Boolean(flags.prune) }),
   });
   const body = (await res.json().catch(() => ({}))) as Partial<PushResponse> & { error?: string; code?: string; conflicts?: KeyConflict[] };
   if (res.status === 409 && body.code === 'key_conflict' && body.conflicts?.length) keyConflict(body.conflicts);
@@ -185,6 +193,7 @@ export async function push(flags: Flags): Promise<void> {
     return;
   }
   console.log(`${c.green('✔')} pushed ${c.bold(String(body.project))} v${body.version} · ${body.experiments} experiment(s) → ${target.url}`);
+  if (body.kept?.length) console.log(c.yellow(`! kept in the cloud, not in ${out.configFile}: ${body.kept.join(', ')}. They go on as they are; npx splithub push --prune removes them.`));
   if (adopted.length) console.log(`${c.green('✔')} written into ${out.configFile} from the dashboard: ${adopted.join(', ')} (wire them in code if they are value/component experiments)`);
   if (body.publicKey) {
     console.log(keyWritten ? `${c.green('✔')} public key written to ${out.configFile}` : `${c.dim('public key:')} ${body.publicKey}`);
@@ -202,9 +211,10 @@ async function dryRun(flags: Flags, config: SplitHubConfig): Promise<void> {
     if (target.token) {
       const res = await cloudFetch(`${target.url}/config`, { headers: { authorization: `Bearer ${target.token}` } });
       const body = (await res.json().catch(() => ({}))) as { config?: { experiments?: CloudExperiment[] } };
-      if (res.status === 404 || res.status === 409) diff = configDiff(config.experiments, []);
+      const prune = Boolean(flags.prune);
+      if (res.status === 404 || res.status === 409) diff = configDiff(config.experiments, [], prune);
       else if (!res.ok) throw apiError(res.status, body, `${target.url}/config responded ${res.status}`);
-      else diff = configDiff(config.experiments, body.config?.experiments ?? []);
+      else diff = configDiff(config.experiments, body.config?.experiments ?? [], prune);
       cloud = 'compared';
     }
   }
@@ -215,11 +225,12 @@ async function dryRun(flags: Flags, config: SplitHubConfig): Promise<void> {
   }
   console.log(`${c.green('✔')} config loads · ${experiments.length} experiment(s) · ${config.storage.mode} mode`);
   if (!diff) console.log(c.dim(cloud === 'self mode' ? 'Self mode: nothing to push.' : 'Not connected, so nothing to compare. Run npx splithub login.'));
-  else if (!diff.added.length && !diff.removed.length && !diff.changed.length) console.log(c.dim('The cloud already has this config.'));
+  else if (!diff.added.length && !diff.removed.length && !diff.kept.length && !diff.changed.length) console.log(c.dim('The cloud already has this config.'));
   else {
     for (const k of diff.added) console.log(`${c.green('+')} ${k}`);
     for (const k of diff.removed) console.log(`${c.red('-')} ${k}`);
     for (const ch of diff.changed) console.log(`${c.yellow('~')} ${ch.experiment} ${c.dim(`(${ch.fields.join(', ')})`)}`);
+    for (const k of diff.kept) console.log(c.dim(`= ${k} (in the cloud only: kept; --prune removes it)`));
   }
 }
 

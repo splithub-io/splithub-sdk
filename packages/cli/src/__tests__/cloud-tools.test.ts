@@ -180,6 +180,7 @@ beforeAll(async () => {
       if (u === '/alerts/rules/r1aaaaaa-0000/test') return send(200, { matches: [{ experiment: null, message: '1,500 events used' }] });
       if (u === '/alerts/rules/r1aaaaaa-0000' && m === 'PATCH') return send(200, { rule: { ...RULE, enabled: body?.enabled } });
       if (u === '/alerts/rules/r1aaaaaa-0000' && m === 'DELETE') return send(200, { ok: true });
+      if (u === '/properties' && m === 'POST') return send(201, { property: { key: body?.key, name: body?.name, status: 'running', goals: [], origin: 'dashboard' } });
       if (u === '/properties') return send(200, { properties: [{ key: 'sh-cloud1', name: 'Cloud site', status: 'running', last30: { visitors: 3 } }] });
       send(404, { error: 'not found' });
     });
@@ -287,5 +288,14 @@ describe('splithub analytics connect (built CLI)', () => {
     const out = await run(dir, ['analytics', 'connect']);
     expect(out.json).toMatchObject({ property: 'sh-cloud1', created: false, wired: { status: 'none' }, snippets: { script: expect.stringContaining('data-key="pk_test" data-property="sh-cloud1"') } });
     expect(readFileSync(join(dir, 'splithub.config.ts'), 'utf8')).not.toContain('sh-cloud1');
+  });
+
+  it('creates a new cloud property in the cloud right away, no push', async () => {
+    const dir = scratch('cloud', { 'src/main.tsx': main });
+    seen.length = 0;
+    const out = await run(dir, ['analytics', 'connect', '--name', 'Docs']);
+    expect(out.json).toMatchObject({ created: true, live: 'applied', wired: { status: 'added' }, next: expect.not.arrayContaining(['npx splithub push']) });
+    const posted = seen.find((s) => s.method === 'POST' && s.url === '/properties');
+    expect(posted?.body).toMatchObject({ key: out.json.property, name: 'Docs', status: 'running' });
   });
 });

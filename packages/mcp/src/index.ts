@@ -508,7 +508,7 @@ server.registerTool(
   'splithub_analytics_connect',
   {
     description:
-      'Set up analytics in this app: use a property (id), create one (name, or nothing when the project has none), then name it on the one <SplitHubProvider> / <SplitHubNextProvider> in the code (property="sh-…"). Answers property, created, wired { status: added | already | other | none | many, file, line }, snippets { provider, script (sh.js tag with data-property), track, identify } and next. status none or many: add the provider snippet yourself (or the sh.js tag on a site without React). other: the provider names another property; ask before calling again with force. Pageviews are sent for you; events are track(name, props). Then push (cloud, when created) and deploy.',
+      'Set up analytics in this app: use a property (id), create one (name, or nothing when the project has none), then name it on the one <SplitHubProvider> / <SplitHubNextProvider> in the code (property="sh-…"). Answers property, created, wired { status: added | already | other | none | many, file, line }, snippets { provider, script (sh.js tag with data-property), track, identify } and next. status none or many: add the provider snippet yourself (or the sh.js tag on a site without React). other: the provider names another property; ask before calling again with force. Pageviews are sent for you; events are track(name, props). In cloud mode a new property is created in the cloud at once (live: applied), so no push: deploy.',
     inputSchema: {
       property: z.string().optional().describe('property id to use (added to the config when new)'),
       name: z.string().max(80).optional().describe('create a new property with this name'),
@@ -531,7 +531,7 @@ for (const [name, old] of [['splithub_property_create', false], ['splithub_creat
   server.registerTool(
     name,
     {
-      description: old ? oldName('splithub_property_create') : 'Add an analytics property to splithub.config.ts, checked by reloading the file. Its id is generated (sh-x1h78w) unless given; it comes back as property. Events go only to a property named explicitly: wire <SplitHubProvider config={config} property="<id>"> (pageviews on load and every route change, and every track() call) or data-property="<id>" on the sh.js script tag. Every goal of the project counts as a conversion unless goals narrows them. Then tell the user to push (cloud) and deploy.',
+      description: old ? oldName('splithub_property_create') : 'Add an analytics property to splithub.config.ts, checked by reloading the file. Its id is generated (sh-x1h78w) unless given; it comes back as property. Events go only to a property named explicitly: wire <SplitHubProvider config={config} property="<id>"> (pageviews on load and every route change, and every track() call) or data-property="<id>" on the sh.js script tag. Every goal of the project counts as a conversion unless goals narrows them. In cloud mode it is created in the cloud at once (live: applied), so no push is needed: tell the user to deploy. If live names a missing API key, log in and call again (or push).',
       inputSchema: {
         id: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/).optional().describe('omit to get a generated id'),
         name: z.string().max(80).optional(),
@@ -610,18 +610,20 @@ server.registerTool(
 server.registerTool(
   'splithub_push',
   {
-    description: 'Upload splithub.config.ts to SplitHub Cloud (cloud mode). Returns experiments created in the dashboard that were written into the file. dryRun: only check the config and show what would change. A key that already belonged to another experiment fails with KEY_CONFLICT: ask the user, then push with replace (new experiment, old numbers cleared) or same (same experiment, numbers stay).',
+    description: 'Upload splithub.config.ts to SplitHub Cloud (cloud mode). Also returns kept: experiments the cloud has from an earlier push that this file lacks, left as they are. prune removes those: only when the user asked for it. Returns experiments created in the dashboard that were written into the file. dryRun: only check the config and show what would change. A key that already belonged to another experiment fails with KEY_CONFLICT: ask the user, then push with replace (new experiment, old numbers cleared) or same (same experiment, numbers stay).',
     inputSchema: {
       dryRun: z.boolean().optional(),
       replace: z.array(z.string()).optional().describe('keys that are new experiments: the old numbers under them are cleared'),
       same: z.array(z.string()).optional().describe('keys that are the same experiment as before: the numbers stay'),
+      prune: z.boolean().optional().describe('also remove experiments the cloud has that the file lacks (ask the user first)'),
     },
   },
-  async ({ dryRun, replace, same }) => {
-    if (dryRun) return reply(await runCli(['push', '--dry-run']));
+  async ({ dryRun, replace, same, prune }) => {
+    if (dryRun) return reply(await runCli(['push', '--dry-run', ...(prune ? ['--prune'] : [])]));
     const args = ['push'];
     if (replace?.length) args.push('--replace', replace.join(','));
     if (same?.length) args.push('--same', same.join(','));
+    if (prune) args.push('--prune');
     return reply(await runCli(args));
   }
 );

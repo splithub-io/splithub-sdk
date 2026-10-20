@@ -112,6 +112,16 @@ beforeAll(async () => {
     if (u.startsWith('/properties/site') && req.method === 'PATCH') {
       return readBody((b) => res.end(json({ property: { key: 'site', status: 'paused', ...(typeof b.archived === 'boolean' ? { archived: b.archived } : {}) } })));
     }
+    if (u === '/properties' && req.method === 'POST') {
+      return readBody((b) => {
+        if (b.key === 'site') {
+          res.statusCode = 409;
+          return res.end(json({ error: 'property "site" already exists' }));
+        }
+        res.statusCode = 201;
+        res.end(json({ property: { key: b.key, name: b.name, status: b.status, goals: b.goals, origin: 'dashboard' } }));
+      });
+    }
     if (u === '/properties') {
       return res.end(json({ properties: [{ key: 'site', name: null, status: 'paused', origin: 'config', goals: [], domains: [], archived: true, last30: null }, { key: 'blog', name: null, status: 'running', origin: 'dashboard', goals: [], domains: [], archived: false, last30: null }] }));
     }
@@ -140,6 +150,22 @@ describe('splithub analytics (built CLI)', () => {
     const generated = await run(dir, ['analytics', 'create', '--name', 'Blog']);
     expect(generated.json.property).toMatch(/^sh-[a-z2-9]{6}$/);
     expect(readFileSync(join(dir, 'splithub.config.ts'), 'utf8')).not.toContain('site:');
+  });
+
+  it('creates a cloud property in the cloud too, so no push is needed', async () => {
+    const dir = scratch('cloud');
+    seen.length = 0;
+    const created = await run(dir, ['analytics', 'create', 'blog', '--name', 'Blog']);
+    expect(created.json).toMatchObject({ property: 'blog', live: 'applied', next: expect.not.stringContaining('push') });
+    expect(seen).toContain('POST /properties');
+    expect(readFileSync(join(dir, 'splithub.config.ts'), 'utf8')).toContain("blog: { name: 'Blog' }");
+    // An id the cloud already has (made in the dashboard) is live as it is.
+    expect((await run(dir, ['analytics', 'create', 'site'])).json).toMatchObject({ property: 'site', live: 'applied' });
+    const text = await new Promise<string>((done) => execFile(process.execPath, [cli, 'analytics', 'create', 'docs'], { cwd: dir, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', SPLITHUB_API_KEY: 'sk_test', SPLITHUB_URL: '', SPLITHUB_API: url } }, (_e, stdout) => done(stdout)));
+    expect(text).toContain('no push needed');
+    // Not signed in: the file has it, the push adds it to the cloud.
+    const offline = await new Promise<Record<string, unknown>>((done) => execFile(process.execPath, [cli, 'analytics', 'create', 'shop', '--json'], { cwd: dir, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', SPLITHUB_API_KEY: '', SPLITHUB_URL: '', SPLITHUB_API: url, XDG_CONFIG_HOME: dir } }, (_e, stdout) => done(JSON.parse(stdout.trim().split(/\r?\n/).pop() ?? '{}') as Record<string, unknown>)));
+    expect(offline).toMatchObject({ property: 'shop', live: expect.stringContaining('no API key'), next: expect.stringContaining('npx splithub push') });
   });
 
   it('reads raw counts from a self-hosted endpoint', async () => {

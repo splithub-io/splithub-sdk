@@ -265,8 +265,13 @@ async function rawEvents(key: string, flags: Flags): Promise<void> {
   );
 }
 
-/** Writes a property into splithub.config.ts (checked by reloading it). Used by `analytics create` and `analytics connect`. */
-export async function addProperty(key: string, flags: Flags): Promise<{ key: string; status: 'running' | 'paused'; goals: string[]; file: string; cloud: boolean }> {
+/**
+ * Writes a property into splithub.config.ts (checked by reloading it) and, in cloud mode, creates it in the
+ * cloud right away (like pause / resume): no push needed. Used by `analytics create` and `analytics connect`.
+ * A push from a file that lacks experiments the cloud already has would remove them, so adding analytics
+ * never asks for one.
+ */
+export async function addProperty(key: string, flags: Flags): Promise<{ key: string; status: 'running' | 'paused'; goals: string[]; file: string; cloud: boolean; live: string }> {
   if (!KEY.test(key)) fail('INVALID_FLAG', `"${key}" is not a valid id: lowercase letters, digits, - and _.`);
   const project = requireConfig();
   const file = relative(project.root, project.configFile);
@@ -277,16 +282,45 @@ export async function addProperty(key: string, flags: Flags): Promise<{ key: str
   const original = readSource(project.configFile);
   const updated = insertProperty(original, { key, status, name: str(flags.name), description: str(flags.description), goals });
   await writeConfigChecked(project.configFile, original, updated, (config) => (config.properties?.some((p) => p.key === key) ? null : `"${key}" did not appear`));
-  return { key, status, goals, file, cloud: before.storage.mode === 'cloud' };
+  const cloud = before.storage.mode === 'cloud';
+  let live = 'skipped';
+  if (cloud) {
+    const t = cloudTarget(flags);
+    if (!t.token) live = 'no API key (run npx splithub login or set SPLITHUB_API_KEY to create it in the cloud without a push)';
+    else {
+      try {
+        await request(t, '/properties', { method: 'POST', body: JSON.stringify({ key, name: str(flags.name) ?? project.name, description: str(flags.description), status, goals }) });
+        live = 'applied';
+      } catch (error) {
+        // The cloud already has this id (made in the dashboard, or an earlier run): it is live as it is.
+        live = error instanceof Error && /already exists/.test(error.message) ? 'applied' : `cloud refused: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    }
+  }
+  return { key, status, goals, file, cloud, live };
+}
+
+/** What to do after a property was added: push only when the cloud could not take it now. */
+export function afterAdded(cloud: boolean, live: string): string[] {
+  return cloud && live !== 'applied' ? ['npx splithub push'] : [];
+}
+
+/** The line under the ✔ of a property added in cloud mode: live, or why a push is still needed. */
+export function printLive(cloud: boolean, live: string): void {
+  if (!cloud) return;
+  if (live === 'applied') console.log(`${c.green('✔')} live in the cloud within 60s, no push needed`);
+  else console.log(c.yellow(`! ${live}; run npx splithub push to add it`));
 }
 
 async function createProperty(key: string, flags: Flags): Promise<void> {
-  const { status, goals, file, cloud } = await addProperty(key, flags);
+  const { status, goals, file, cloud, live } = await addProperty(key, flags);
+  const wire = `name the property where events are sent: <SplitHubProvider property="${key}"> or data-property="${key}" on sh.js`;
   const next = cloud
-    ? `Run npx splithub push, then name the property where events are sent: <SplitHubProvider property="${key}"> or data-property="${key}" on sh.js.`
+    ? [...afterAdded(cloud, live), wire, 'deploy the app'].join(', then ')
     : `Name the property where events are sent (<SplitHubProvider property="${key}">), then read them with npx splithub analytics ${key}.`;
-  if (flags.json) return printJson({ property: key, status, goals, configFile: file, next });
+  if (flags.json) return printJson({ property: key, status, goals, configFile: file, live, next });
   console.log(`${c.green('✔')} analytics property ${c.bold(key)} added to ${c.dim(file)}`);
+  printLive(cloud, live);
   console.log(c.dim(`Next: ${next}`));
 }
 

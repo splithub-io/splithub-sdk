@@ -1,6 +1,6 @@
 {
   "name": "splithub",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "A/B testing for your app in one command. Create a test, start it, read a plain verdict. Works for you and for your coding agent.",
   "license": "MIT",
   "repository": {

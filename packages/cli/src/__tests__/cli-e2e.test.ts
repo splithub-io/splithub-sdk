@@ -107,7 +107,7 @@ const REPORT = { project: 'demo', markdown: '### SplitHub · demo\n\nfrom the se
 const SKILLS = { version: 'abc', files: [{ path: '.claude/skills/splithub/SKILL.md', body: '---\nname: splithub\n---\nfrom the server\n' }, { path: '../evil.md', body: 'nope' }, { path: 'AGENTS.md', body: '\n## A/B testing (SplitHub)\nserver section\n' }] };
 const STATUS = { project: 'demo', experiments: [{ experiment: 'hero', kind: 'value', status: 'running', goal: 'signup', description: null, exposures: 200, visitors: 200, days: 2, verdict: 'insufficient_sample', headline: '#2 +10% (too early)', best: null, sample: 'ok', stars: 1, daysToVerdict: 6, display: { label: 'TOO EARLY', lines: ['#2 +10% (too early)'] } }, { experiment: '__holdout', kind: 'value', status: 'running', goal: 'signup', description: null, exposures: 10, visitors: 10, days: 2, verdict: 'insufficient_sample', headline: 'too early', best: null }] };
 
-const pushes: Array<{ replace?: string[]; same?: string[] }> = [];
+const pushes: Array<{ replace?: string[]; same?: string[]; prune?: boolean }> = [];
 
 beforeAll(async () => {
   if (!existsSync(cli)) execFileSync(process.execPath, [resolve(__dirname, '../../../../node_modules/tsup/dist/cli-default.js')], { cwd: resolve(__dirname, '../..'), stdio: 'ignore' });
@@ -134,9 +134,9 @@ beforeAll(async () => {
       let raw = '';
       req.on('data', (chunk: Buffer) => (raw += chunk.toString()));
       req.on('end', () => {
-        const body = JSON.parse(raw) as { replace?: string[]; same?: string[] };
+        const body = JSON.parse(raw) as { replace?: string[]; same?: string[]; prune?: boolean };
         pushes.push(body);
-        if (body.replace?.includes('hero') || body.same?.includes('hero')) res.end(JSON.stringify({ ok: true, project: 'p', version: 2, pushedAt: 'now', publicKey: 'pk_test', experiments: 1 }));
+        if (body.replace?.includes('hero') || body.same?.includes('hero')) res.end(JSON.stringify({ ok: true, project: 'p', version: 2, pushedAt: 'now', publicKey: 'pk_test', experiments: 1, kept: body.prune ? [] : ['legacy'] }));
         else {
           res.statusCode = 409;
           res.end(JSON.stringify({ error: 'hero: this key already belongs to another test', code: 'key_conflict', conflicts: [{ key: 'hero', reason: 'old_data', exposures: 1200 }] }));
@@ -433,7 +433,13 @@ describe('names and keys', () => {
     const stopped = await run(dir, ['push', '--api', url, '--token', 'sk_test']);
     expect(stopped.json).toMatchObject({ code: 'KEY_CONFLICT' });
     expect(String(stopped.json.hint)).toContain('--replace hero');
-    expect((await run(dir, ['push', '--api', url, '--token', 'sk_test', '--same', 'hero'])).code).toBe(0);
-    expect(pushes.at(-1)).toMatchObject({ replace: [], same: ['hero'] });
+    const same = await run(dir, ['push', '--api', url, '--token', 'sk_test', '--same', 'hero']);
+    expect(same.code).toBe(0);
+    expect(pushes.at(-1)).toMatchObject({ replace: [], same: ['hero'], prune: false });
+    expect(same.json).toMatchObject({ kept: ['legacy'] });
+    const pruned = await run(dir, ['push', '--api', url, '--token', 'sk_test', '--same', 'hero', '--prune']);
+    expect(pruned.code).toBe(0);
+    expect(pushes.at(-1)).toMatchObject({ prune: true });
+    expect(pruned.json).toMatchObject({ kept: [] });
   }, 60_000);
 });

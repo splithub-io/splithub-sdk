@@ -27,7 +27,9 @@ export async function remove(id: string | undefined, flags: Flags): Promise<void
   const project = requireConfig();
   const { configFile, cloud, mode } = await removeFromConfig(id, flags);
   const left = findRefs(project.root, null, id).refs;
-  const next = [mode === 'cloud' ? 'npx splithub push' : null, left.length ? `remove the ${left.length} line(s) in the code that still use "${id}" (npx splithub refs ${id})` : null].filter(Boolean).join(', then ');
+  // Archived in the cloud, a push drops it; otherwise the push keeps it unless it prunes.
+  const pushStep = mode !== 'cloud' ? null : cloud === 'archived' || cloud === 'finished' ? 'npx splithub push' : 'npx splithub push --prune';
+  const next = [pushStep, left.length ? `remove the ${left.length} line(s) in the code that still use "${id}" (npx splithub refs ${id})` : null].filter(Boolean).join(', then ');
   if (flags.json) {
     printJson({ experiment: id, removed: true, configFile, cloud, refs: left, ...(next ? { next } : {}) });
     return;

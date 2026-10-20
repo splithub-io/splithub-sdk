@@ -80,7 +80,9 @@ export async function ship(id: string | undefined, flags: Flags): Promise<void> 
   const goalRefs = exp.goal ? findRefs(project.root, config, id).refs.filter((r) => r.match === 'goal') : [];
   const goalNote = exp.goal ? (config.experiments.some((e) => e.key !== id && e.goal === exp.goal) ? `Keep track('${exp.goal}'): another experiment measures it.` : `Nothing else measures "${exp.goal}". Remove its track() calls and the goal if you no longer need it.`) : null;
   const loser = exp.kind === 'component' ? `Delete the components only the other variants used (e.g. splithub/${id}/).` : exp.kind === 'redirect' ? `Make the kept page the real one: ${String((variant as { to?: unknown }).to ?? '')}.` : null;
-  const next = [config.storage.mode === 'cloud' ? 'npx splithub push' : null, 'npx splithub doctor', "the project's typecheck and tests", loser, goalNote].filter((x): x is string => Boolean(x));
+  // Archived in the cloud, a push drops it; otherwise the push keeps it unless it prunes.
+  const pushStep = config.storage.mode !== 'cloud' ? null : live === 'archived' || live === 'finished' ? 'npx splithub push' : 'npx splithub push --prune';
+  const next = [pushStep, 'npx splithub doctor', "the project's typecheck and tests", loser, goalNote].filter((x): x is string => Boolean(x));
 
   const diff = [configDiff, ...changes.map((ch) => ch.diff)].join('');
   const out = {

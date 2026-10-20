@@ -32,7 +32,9 @@ Events go to the app's own database (self mode) or to SplitHub Cloud (cloud mode
   stores a project API key for this folder. Never ask the user to paste keys. CI uses \`SPLITHUB_API_KEY\`.
 - The public key (\`pk_\`) ends up in \`storage.key\` of the config from any of: \`login\` (saved credentials), the first
   \`push\`, \`init --key\`, or \`SPLITHUB_API_KEY\` in the environment (init asks the cloud). Missing key = events go nowhere.
-- Cloud: \`npx splithub push\` uploads the config; \`npx splithub pull\` writes dashboard-created experiments into the file.
+- Cloud: \`npx splithub push\` uploads the config. Experiments the cloud has from an earlier push that the file lacks are
+  kept (\`kept\` in the answer); only \`npx splithub push --prune\` removes them, and only when the user asked for that.
+  \`npx splithub pull\` writes dashboard-created experiments into the file.
 - Results: \`npx splithub status --json\` (in the cloud it also has \`properties\`: each analytics property's last 7 days), \`npx splithub results <id> --json\`. Sizing: \`npx splithub plan --baseline 0.05 --mde 0.1\`.
 - Closer reads (cloud): \`results <id> --from --to --filter country=DE\` (a slice), \`--by <dimension>\`, \`--timeline\`, \`--engagement\`,
   \`--events\`, \`--export --by <dimension>\` or \`--export --events\` (CSV); \`npx splithub events --experiment <id>\` for the raw tail. See "Read results".
@@ -311,7 +313,7 @@ GET  /v1/experiments/<experiment>/export.breakdown.csv?by=   the breakdown as CS
 GET  /v1/experiments/<experiment>/export.events-summary.csv   the events table as CSV, lift per event
 GET  /v1/experiments/<experiment>/events             ?type=exposure|goal&before=&limit=&<filters>: raw events, nextBefore (needs events:read)
 GET  /v1/config                      the config stored in the cloud (file + dashboard experiments)
-PUT  /v1/config        { config }    push a normalized config (what defineConfig returns); answers cloudOnly experiments to adopt
+PUT  /v1/config        { config, prune? }    push a normalized config (what defineConfig returns); answers cloudOnly experiments to adopt and kept ones (from an earlier push, missing from this one; prune: true removes them)
 GET  /v1/overrides                   live overrides
 PUT  /v1/overrides/<experiment> { status | traffic | weights | values }   pause / resume / reweight without a deploy
 DELETE /v1/overrides/<experiment>
@@ -416,7 +418,7 @@ Env: \`SPLITHUB_PROJECT_DIR\` (defaults to the MCP client's working directory), 
 | \`splithub_notes\` | what happened on a day, per experiment, property or project: list / add / edit / delete (cloud) | add one when you ship |
 | \`splithub_alerts\` | alert rules: list / add / enable / disable / delete / test (cloud, fire on Pro) | conditions in the splithub skill |
 | \`splithub_links\` | short links: list / stats / create / edit / pause / resume / delete (cloud) | several URLs split by weight |
-| \`splithub_property_create\` | adds an analytics property to splithub.config.ts | push in cloud mode |
+| \`splithub_property_create\` | adds an analytics property to splithub.config.ts and to the cloud | no push needed |
 | \`splithub_property_status\` | pause / resume, archive / restore (cloud) or remove a property | live in cloud mode |
 | \`splithub_domains\` | allowed domains per experiment and property; set or clear one list | empty = any origin |
 
