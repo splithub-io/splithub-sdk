@@ -1,6 +1,6 @@
 {
   "name": "@splithub/adapter-sqlite",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "SQLite store for self-hosted SplitHub, on the SQLite built into Node. Nothing to compile.",
   "license": "MIT",
   "repository": {

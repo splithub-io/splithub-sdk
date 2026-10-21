@@ -323,6 +323,8 @@ PATCH /v1/properties/<key> { status: running | paused, name?, goals? }
 GET  /v1/properties/<key>/summary    ?from=&to= (YYYY-MM-DD) &<dimension>=a,b[&compare=previous|year|custom&cfrom=&cto=]: totals, days, goals, notes
 GET  /v1/properties/<key>/breakdown  ?by=source|channel|page|event|goal|country|…&goal=[&compare=…]: rows
 GET  /v1/properties/<key>/funnel     ?steps=page:/,event:Signup,goal:paid&within=visit|7d|30d[&by=]: steps with visitors, conversion, dropoff
+                                     ?funnel=<id> runs a saved funnel (its steps and within)
+GET|POST /v1/properties/<key>/funnels   { name, steps[], within? }   PATCH|DELETE /v1/properties/<key>/funnels/<id>
 GET  /v1/properties/<key>/paths      ?page=/pricing&direction=next|prev: rows { value, visits }
 GET  /v1/properties/<key>/retention  ?start=visit|event:<n>|goal:<k>&return=visit|event:<n>&period=day|week: cohorts
 GET  /v1/properties/<key>/realtime | /events?type=page|event | /props?name=&key= | /export.csv?by=|day (&raw=1)
@@ -412,7 +414,7 @@ Env: \`SPLITHUB_PROJECT_DIR\` (defaults to the MCP client's working directory), 
 | \`splithub_whoami\` | connected project and keys | |
 | \`splithub_analytics\` | analytics properties; one property's totals, goals, top pages and sources; \`by\` a dimension | counts, never verdicts |
 | \`splithub_analytics_events\` | the latest raw pageviews and events of a property | check tracking after wiring it |
-| \`splithub_analytics_funnel\` / \`_paths\` / \`_retention\` / \`_realtime\` | funnels, next pages, cohorts, visitors now (cloud) | counts, never verdicts |
+| \`splithub_analytics_funnel\` / \`_funnels\` / \`_paths\` / \`_retention\` / \`_realtime\` | funnels (run, save, list), next pages, cohorts, visitors now (cloud) | counts, never verdicts |
 | \`splithub_analytics_connect\` | picks or creates a property and names it on the app's provider | \`wired.status\` none / many: add the snippet yourself |
 | \`splithub_segments\` | saved report filters (cloud) | |
 | \`splithub_notes\` | what happened on a day, per experiment, property or project: list / add / edit / delete (cloud) | add one when you ship |

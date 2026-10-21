@@ -1,7 +1,8 @@
 // Analytics reports past the summary and breakdowns, plus what people save around them.
 // SplitHub Cloud only: a self-hosted endpoint answers raw counts (`splithub analytics <id>`).
 //
-//   splithub analytics funnel <id> --steps "page:/,event:Signup,goal:paid" [--within visit|7d|30d] [--by <dimension>]
+//   splithub analytics funnel <id> --steps "page:/,event:Signup,goal:paid" | --funnel <name|id> [--within visit|7d|30d] [--by <dimension>]
+//   splithub analytics funnels <id> | --save <name> --steps "..." [--within 7d] | --delete <id|name>
 //   splithub analytics paths <id> --page /pricing [--prev]
 //   splithub analytics retention <id> [--start visit|event:<name>|goal:<key>] [--return visit|event:<name>] [--period day|week]
 //   splithub analytics realtime <id>
@@ -141,13 +142,17 @@ const WITHIN: Record<string, string> = { visit: 'in one visit', '7d': 'within 7 
 
 export async function funnel(key: string, flags: Flags): Promise<void> {
   const steps = str(flags.steps);
-  if (!steps || steps.split(',').filter((s) => s.trim()).length < 2) fail('USAGE', 'Which steps? npx splithub analytics funnel <id> --steps "page:/,event:Signup,goal:paid" (2 or more).');
+  const want = str(flags.funnel);
+  if (!want && (!steps || steps.split(',').filter((s) => s.trim()).length < 2)) fail('USAGE', 'Which steps? npx splithub analytics funnel <id> --steps "page:/,event:Signup,goal:paid" (2 or more), or a saved one: --funnel <name>.');
   const t = cloudOnly(flags, 'Funnels');
-  const within = str(flags.within) ?? 'visit';
+  // A saved funnel brings its steps and time limit; --steps and --within still win.
+  const saved = want && !steps ? findFunnel(await listFunnels(t, key), want, key) : null;
+  const within = str(flags.within) ?? (saved ? undefined : 'visit');
   const by = str(flags.by);
-  const data = await request<FunnelData>(t, `/properties/${enc(key)}/funnel${reportQuery(flags, { steps, within, ...(by ? { by } : {}) }, await segmentFilters(t, flags, key))}`);
+  const extra: Record<string, string> = { ...(saved ? { funnel: saved.id } : { steps: steps! }), ...(within ? { within } : {}), ...(by ? { by } : {}) };
+  const data = await request<FunnelData>(t, `/properties/${enc(key)}/funnel${reportQuery(flags, extra, await segmentFilters(t, flags, key))}`);
   if (flags.json) return printJson(data);
-  head(key, [`funnel ${WITHIN[data.within] ?? data.within}`, span(data.range)]);
+  head(key, [...(saved ? [saved.name] : []), `funnel ${WITHIN[data.within] ?? data.within}`, span(data.range)]);
   const first = data.steps[0]?.visitors ?? 0;
   console.log(
     table(
@@ -162,6 +167,60 @@ export async function funnel(key: string, flags: Flags): Promise<void> {
   }
   if (data.rolledUp) console.log(c.dim('\nDays older than 90 days keep no step order, so they count nothing here.'));
   if (first === 0) console.log(c.dim('Nobody reached the first step in this range.'));
+}
+
+// ---------------------------------------------------------------------------
+// Saved funnels
+// ---------------------------------------------------------------------------
+
+interface SavedFunnel {
+  id: string;
+  name: string;
+  steps: string[];
+  within: string;
+  updatedAt: string;
+}
+
+async function listFunnels(t: Target, key: string): Promise<SavedFunnel[]> {
+  return (await request<{ funnels: SavedFunnel[] }>(t, `/properties/${enc(key)}/funnels`)).funnels;
+}
+
+function findFunnel(list: SavedFunnel[], want: string, key: string): SavedFunnel {
+  const f = list.find((x) => x.id === want) ?? list.find((x) => x.name.toLowerCase() === want.toLowerCase());
+  if (!f) fail('INVALID_FLAG', `There's no funnel "${want}" on ${key}.`, `See the saved ones with npx splithub analytics funnels ${key}.`);
+  return f;
+}
+
+/** List, save (a new name creates one, a saved name updates it) or delete the funnels of one property. */
+export async function funnels(key: string, flags: Flags): Promise<void> {
+  const t = cloudOnly(flags, 'Saved funnels');
+  const save = str(flags.save);
+  const del = str(flags.delete);
+  if (save) {
+    const steps = (str(flags.steps) ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    const within = str(flags.within);
+    const existing = (await listFunnels(t, key)).find((x) => x.name.toLowerCase() === save.toLowerCase());
+    if (!existing && steps.length < 2) fail('USAGE', `Which steps? npx splithub analytics funnels ${key} --save "${save}" --steps "page:/,event:Signup,goal:paid"`);
+    const body = JSON.stringify({ name: save, ...(steps.length ? { steps } : {}), ...(within ? { within } : {}) });
+    const out = existing
+      ? await request<{ funnel: SavedFunnel }>(t, `/properties/${enc(key)}/funnels/${enc(existing.id)}`, { method: 'PATCH', body })
+      : await request<{ funnel: SavedFunnel }>(t, `/properties/${enc(key)}/funnels`, { method: 'POST', body });
+    if (flags.json) return printJson(out);
+    console.log(`${c.green('✔')} funnel ${c.bold(out.funnel.name)} ${existing ? 'updated' : 'saved'} ${c.dim(`(${out.funnel.steps.join(' → ')}, ${WITHIN[out.funnel.within] ?? out.funnel.within})`)}`);
+    console.log(c.dim(`Run it: npx splithub analytics funnel ${key} --funnel "${out.funnel.name}"`));
+    return;
+  }
+  if (del) {
+    const f = findFunnel(await listFunnels(t, key), del, key);
+    await request(t, `/properties/${enc(key)}/funnels/${enc(f.id)}`, { method: 'DELETE' });
+    if (flags.json) return printJson({ ok: true, id: f.id, name: f.name });
+    console.log(`${c.green('✔')} funnel ${c.bold(f.name)} deleted`);
+    return;
+  }
+  const list = await listFunnels(t, key);
+  if (flags.json) return printJson({ property: key, funnels: list });
+  if (list.length === 0) return void console.log(c.dim(`No saved funnels on ${key} yet. Save one: npx splithub analytics funnels ${key} --save Signup --steps "page:/,goal:signup"`));
+  console.log(table(['NAME', 'STEPS', 'COMPLETED', 'ID'], list.map((f) => [c.bold(f.name), f.steps.join(' → '), WITHIN[f.within] ?? f.within, c.dim(f.id)])));
 }
 
 // ---------------------------------------------------------------------------

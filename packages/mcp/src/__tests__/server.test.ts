@@ -50,7 +50,7 @@ describe('@splithub/mcp', () => {
   it('lists the tools', async () => {
     expect(existsSync(dist)).toBe(true);
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(['splithub_analytics', 'splithub_analytics_events', 'splithub_analytics_funnel', 'splithub_analytics_paths', 'splithub_analytics_realtime', 'splithub_analytics_retention', 'splithub_analytics_connect', 'splithub_notes', 'splithub_links', 'splithub_alerts', 'splithub_segments', 'splithub_create_experiment', 'splithub_create_property', 'splithub_doctor', 'splithub_domains', 'splithub_experiment_create', 'splithub_experiment_events', 'splithub_experiment_status', 'splithub_property_create', 'splithub_property_status', 'splithub_set_property_status', 'splithub_init', 'splithub_login', 'splithub_plan', 'splithub_projects', 'splithub_pull', 'splithub_push', 'splithub_refs', 'splithub_remove', 'splithub_results', 'splithub_review', 'splithub_set_status', 'splithub_ship', 'splithub_status', 'splithub_whoami'].sort());
+    expect(tools.map((t) => t.name).sort()).toEqual(['splithub_analytics', 'splithub_analytics_events', 'splithub_analytics_funnel', 'splithub_analytics_funnels', 'splithub_analytics_paths', 'splithub_analytics_realtime', 'splithub_analytics_retention', 'splithub_analytics_connect', 'splithub_notes', 'splithub_links', 'splithub_alerts', 'splithub_segments', 'splithub_create_experiment', 'splithub_create_property', 'splithub_doctor', 'splithub_domains', 'splithub_experiment_create', 'splithub_experiment_events', 'splithub_experiment_status', 'splithub_property_create', 'splithub_property_status', 'splithub_set_property_status', 'splithub_init', 'splithub_login', 'splithub_plan', 'splithub_projects', 'splithub_pull', 'splithub_push', 'splithub_refs', 'splithub_remove', 'splithub_results', 'splithub_review', 'splithub_set_status', 'splithub_ship', 'splithub_status', 'splithub_whoami'].sort());
     // The old names stay for one release and point at the new ones.
     for (const [old, now] of [['splithub_create_experiment', 'splithub_experiment_create'], ['splithub_set_status', 'splithub_experiment_status'], ['splithub_create_property', 'splithub_property_create'], ['splithub_set_property_status', 'splithub_property_status']]) {
       const alias = tools.find((t) => t.name === old)!;
@@ -116,6 +116,9 @@ describe('@splithub/mcp', () => {
     const funnel = await client.callTool({ name: 'splithub_analytics_funnel', arguments: { property: 'site', steps: ['page:/', 'event:Signup'] } });
     expect(funnel.isError).toBe(true);
     expect(JSON.parse((funnel.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ code: 'NOT_CLOUD' });
+    const saved = await client.callTool({ name: 'splithub_analytics_funnels', arguments: { property: 'site', save: 'Signup', steps: ['page:/', 'event:Signup'] } });
+    expect(saved.isError).toBe(true);
+    expect(JSON.parse((saved.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ code: 'NOT_CLOUD' });
     for (const [name, args] of [['splithub_notes', { action: 'add', text: 'Launch' }], ['splithub_links', {}], ['splithub_alerts', { condition: 'usage', every: 1000 }]] as const) {
       const r2 = await client.callTool({ name, arguments: args });
       expect(r2.isError).toBe(true);

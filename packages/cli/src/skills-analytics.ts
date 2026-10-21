@@ -58,6 +58,9 @@ There are no variants and no verdicts: reports are counts.
 - More reports (SplitHub Cloud), each with the same \`--days\` / \`--from --to\` / \`--filter\` flags:
   - \`analytics funnel site --steps "page:/,event:Signup,goal:paid" [--within visit|7d|30d] [--by country]\`: visitors per step
     in order, \`conversion\` (share of step 1) and \`dropoff\` (share lost since the step before).
+  - \`analytics funnels site\`: the funnels saved on the property (its Funnels tab, shared with the team).
+    \`--save Signup --steps "page:/,goal:signup" [--within 7d]\` saves one (a saved name updates it), \`--delete <id|name>\`
+    removes one, and \`analytics funnel site --funnel Signup\` runs it. Save a funnel the user will want to read again.
   - \`analytics paths site --page /pricing [--prev]\`: where visits went next (or came from).
   - \`analytics retention site [--start visit|event:<name>|goal:<key>] [--return visit|event:<name>] [--period day|week]\`: cohorts
     and how many came back per period.

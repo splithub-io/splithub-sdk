@@ -35,7 +35,8 @@ Analytics
   splithub analytics connect      pick or create a property and name it on the app's provider (or get the sh.js tag); [<id>] [--name "Site"] [--force]
   splithub analytics [<id>]       every property, or one: visitors, pages, sources, events, goals (--by page|source|channel|country|event|goal|variant --experiment <key>|trait --key <name>, --days 7, --from --to, --filter country=DE, --compare [year|<from>..<to>])
   splithub analytics create --name "Site"   add a property (id generated, like sh-x1h78w; live in the cloud at once, no push); pause|resume|archive|restore|remove|events <id>
-  splithub analytics funnel <id> --steps "page:/,event:Signup,goal:paid"   visitors per step, conversion, drop-off (--within visit|7d|30d, --by <dimension>)
+  splithub analytics funnel <id> --steps "page:/,event:Signup,goal:paid"   visitors per step, conversion, drop-off (--within visit|7d|30d, --by <dimension>, --funnel <name> runs a saved one)
+  splithub analytics funnels <id>  saved funnels: --save <name> --steps "..." [--within 7d] (a saved name updates it), --delete <id|name>
   splithub analytics paths <id> --page /pricing [--prev]   where visitors go next (or came from)
   splithub analytics retention <id>   who comes back, per weekly cohort (--start visit|event:<name>|goal:<key>, --return visit|event:<name>, --period day|week)
   splithub analytics realtime|props|export <id>   visitors now; an event's props (--event <name> [--key <prop>]); CSV to stdout (--by <dimension>|day, --raw)
@@ -155,6 +156,7 @@ async function main(): Promise<void> {
       compare: { type: 'string' },
       segment: { type: 'string' },
       steps: { type: 'string' },
+      funnel: { type: 'string' },
       within: { type: 'string' },
       page: { type: 'string' },
       prev: { type: 'boolean', default: false },

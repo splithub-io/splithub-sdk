@@ -2,6 +2,21 @@
 
 Every package in this repository is released together under one version.
 
+## 0.4.2
+
+### CLI (`npx splithub`)
+
+- **Saved funnels.** `splithub analytics funnels <id>` lists the funnels saved on a property; `--save <name> --steps "page:/,goal:paid" [--within 7d]` saves one (a saved name updates it) and `--delete <id|name>` removes one. `splithub analytics funnel <id> --funnel <name>` runs a saved funnel.
+
+### MCP (`@splithub/mcp`)
+
+- New `splithub_analytics_funnels` (list, save, delete); `splithub_analytics_funnel` takes `funnel` to run a saved one.
+
+### SplitHub Cloud
+
+- Funnels are saved per property and listed on its Funnels tab. Long funnels no longer answer "busy, retry shortly".
+- Report pages have a Segments menu: pick a saved segment, save the current filters, or clear them.
+
 ## 0.4.1
 
 ### CLI (`npx splithub`)

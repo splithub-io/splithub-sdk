@@ -320,16 +320,36 @@ server.registerTool(
 server.registerTool(
   'splithub_analytics_funnel',
   {
-    description: `Funnel of an analytics property (SplitHub Cloud): visitors who reached each step in order. Steps: page:/path (patterns like page:/blog/* work), event:<name>, goal:<key>; 2 to 8. within: visit (same visit, default), 7d or 30d (from the first step). Answers steps[] with visitors, conversion (share of the first step) and dropoff (share lost since the step before); by splits it by a visit dimension. rolledUp: days older than 90 count nothing. Counts, not an experiment: never call a winner from it.`,
+    description: `Funnel of an analytics property (SplitHub Cloud): visitors who reached each step in order. Steps: page:/path (patterns like page:/blog/* work), event:<name>, goal:<key>; 2 to 8. Or funnel: a saved funnel's name or id (splithub_analytics_funnels), which brings its steps and within. within: visit (same visit, default), 7d or 30d (from the first step). Answers steps[] with visitors, conversion (share of the first step) and dropoff (share lost since the step before); by splits it by a visit dimension. rolledUp: days older than 90 count nothing. Counts, not an experiment: never call a winner from it.`,
     inputSchema: {
       property: z.string(),
-      steps: z.array(z.string()).min(2).max(8).describe('e.g. ["page:/", "event:Signup", "goal:paid"]'),
+      steps: z.array(z.string()).min(2).max(8).optional().describe('e.g. ["page:/", "event:Signup", "goal:paid"]; omit with funnel'),
+      funnel: z.string().optional().describe('a saved funnel name or id'),
       within: z.enum(['visit', '7d', '30d']).optional(),
       by: z.enum(SESSION_BY).optional(),
       ...RANGE,
     },
   },
-  async (a) => reply(await runCli(['analytics', 'funnel', a.property, '--steps', a.steps.join(','), ...(a.within ? ['--within', a.within] : []), ...(a.by ? ['--by', a.by] : []), ...rangeArgs(a)]))
+  async (a) => reply(await runCli(['analytics', 'funnel', a.property, ...(a.steps ? ['--steps', a.steps.join(',')] : []), ...(a.funnel ? ['--funnel', a.funnel] : []), ...(a.within ? ['--within', a.within] : []), ...(a.by ? ['--by', a.by] : []), ...rangeArgs(a)]))
+);
+
+server.registerTool(
+  'splithub_analytics_funnels',
+  {
+    description: 'Saved funnels of an analytics property (SplitHub Cloud), shown on its Funnels tab for the whole team. Without save or delete: the list (id, name, steps, within). save + steps: save one under that name (a name already saved updates it; steps and within as in splithub_analytics_funnel). delete: remove one by id or name. Run one with splithub_analytics_funnel { funnel }.',
+    inputSchema: {
+      property: z.string(),
+      save: z.string().max(60).optional().describe('name of the funnel to save or update'),
+      steps: z.array(z.string()).min(2).max(8).optional().describe('e.g. ["page:/", "event:Signup", "goal:paid"]'),
+      within: z.enum(['visit', '7d', '30d']).optional(),
+      delete: z.string().optional().describe('id or name to delete'),
+    },
+  },
+  async (a) => {
+    if (a.delete) return reply(await runCli(['analytics', 'funnels', a.property, '--delete', a.delete]));
+    if (a.save) return reply(await runCli(['analytics', 'funnels', a.property, '--save', a.save, ...(a.steps ? ['--steps', a.steps.join(',')] : []), ...(a.within ? ['--within', a.within] : [])]));
+    return reply(await runCli(['analytics', 'funnels', a.property]));
+  }
 );
 
 server.registerTool(

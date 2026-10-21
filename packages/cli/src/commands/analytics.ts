@@ -10,7 +10,7 @@
 //   splithub analytics pause|resume <id>
 //   splithub analytics archive|restore <id>     SplitHub Cloud: like Archive in the dashboard (stops collecting, leaves the list, numbers kept)
 //   splithub analytics remove <id>
-//   splithub analytics funnel|paths|retention|realtime|props|export|segments ...   (analytics-reports.ts)
+//   splithub analytics funnel|funnels|paths|retention|realtime|props|export|segments ...   (analytics-reports.ts)
 //
 // Like experiments, properties are declared in splithub.config.ts; pause / resume also apply
 // live in the cloud. Self-hosted endpoints answer raw counts and rows; reports (visits,
@@ -23,12 +23,12 @@ import { insertProperty, loadConfig, readSource, removeProperty, setPropertyStat
 import { fail, printJson } from '../errors';
 import { detectProject, requireConfig } from '../project';
 import { bar, c, statusColor, table } from '../ui';
-import { change, cloudOnly, compareQuery, exportCsv, filterFlags, funnel, n, paths, props, rate, realtime, reportQuery, retention, segmentFilters, segments, str } from './analytics-reports';
+import { change, cloudOnly, compareQuery, exportCsv, filterFlags, funnel, funnels, n, paths, props, rate, realtime, reportQuery, retention, segmentFilters, segments, str } from './analytics-reports';
 import type { Flags } from './init';
 import { noteKind } from './notes';
 
 const KEY = /^[a-z0-9][a-z0-9_-]{0,63}$/;
-const SUBCOMMANDS = new Set(['create', 'connect', 'events', 'pause', 'resume', 'archive', 'restore', 'remove', 'funnel', 'paths', 'retention', 'realtime', 'props', 'export', 'segments']);
+const SUBCOMMANDS = new Set(['create', 'connect', 'events', 'pause', 'resume', 'archive', 'restore', 'remove', 'funnel', 'funnels', 'paths', 'retention', 'realtime', 'props', 'export', 'segments']);
 export const ANALYTICS_BY = ['source', 'referrer', 'channel', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'country', 'region', 'city', 'device', 'os', 'browser', 'language', 'host', 'entry', 'exit', 'page', 'event', 'goal', 'variant', 'trait'] as const;
 
 interface Sums {
@@ -97,6 +97,7 @@ export async function analytics(args: string[], flags: Flags): Promise<void> {
     if (!second) fail('USAGE', `Which property? npx splithub analytics ${first} <id>`);
     if (first === 'events') return rawEvents(second, flags);
     if (first === 'funnel') return funnel(second, flags);
+    if (first === 'funnels') return funnels(second, flags);
     if (first === 'paths') return paths(second, flags);
     if (first === 'retention') return retention(second, flags);
     if (first === 'realtime') return realtime(second, flags);

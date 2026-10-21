@@ -116,5 +116,5 @@ export async function skills(flags: Flags): Promise<void> {
   if (result.skipped.length) console.log(c.dim(`unchanged: ${result.skipped.map(rel).join(', ')}`));
   if (result.source === 'bundled') console.log(c.dim("couldn't reach SplitHub Cloud, so these are the copies bundled with this CLI"));
   if (!flags.mcp) console.log(c.dim(`add --mcp to register the SplitHub MCP server (Claude Code .mcp.json, Cursor .cursor/mcp.json; Codex and Copilot read AGENTS.md)`));
-  console.log(c.dim('skills: splithub (library + CLI), ab-testing (how to run experiments well), splithub-api (HTTP API), splithub-mcp (MCP tools), splithub-self-hosted (your own database), splithub-ship (keep the winner, remove the experiment), splithub-loop (the whole loop, tool by tool)'));
+  console.log(c.dim('skills: splithub (library + CLI), ab-testing (how to run experiments well), splithub-analytics (pageviews, events, reports), splithub-api (HTTP API), splithub-mcp (MCP tools), splithub-self-hosted (your own database), splithub-ship (keep the winner, remove the experiment), splithub-loop (the whole loop, tool by tool)'));
 }

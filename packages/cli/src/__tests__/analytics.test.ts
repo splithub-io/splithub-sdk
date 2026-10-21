@@ -83,6 +83,19 @@ beforeAll(async () => {
       const previous = u.includes('compare=previous') ? { previous: { range: { from: '2026-09-01', to: '2026-09-30' }, totals: { ...totals, visitors: 1 }, goals: [] } } : {};
       return res.end(json({ range: { from: '2026-10-01', to: '2026-10-30' }, totals, goals: [], days: [], notes: [{ id: 'n1', day: '2026-10-02', kind: 'win', text: 'Launch' }], ...previous }));
     }
+    // Saved funnels (before /funnel, which it starts with).
+    if (u === '/properties/site/funnels' && req.method === 'POST') {
+      let raw = '';
+      req.on('data', (d: Buffer) => (raw += d.toString()));
+      return req.on('end', () => {
+        const b = JSON.parse(raw) as Record<string, unknown>;
+        res.statusCode = 201;
+        res.end(json({ funnel: { id: 'fn2', name: b.name, steps: b.steps, within: b.within ?? 'visit', updatedAt: 'x' } }));
+      });
+    }
+    if (u.startsWith('/properties/site/funnels/fn1') && req.method === 'PATCH') return res.end(json({ funnel: { id: 'fn1', name: 'Signup', steps: ['page:/', 'goal:paid'], within: '7d', updatedAt: 'x' } }));
+    if (u.startsWith('/properties/site/funnels/fn1') && req.method === 'DELETE') return res.end(json({ ok: true, id: 'fn1' }));
+    if (u.startsWith('/properties/site/funnels')) return res.end(json({ property: 'site', funnels: [{ id: 'fn1', name: 'Signup', steps: ['page:/', 'event:Signup'], within: '7d', updatedAt: 'x' }] }));
     if (u.startsWith('/properties/site/funnel')) {
       return res.end(json({ range: { from: '2026-10-01', to: '2026-10-30' }, within: 'visit', steps: [{ step: 'page:/', label: '/', visitors: 10, conversion: 1, dropoff: 0 }, { step: 'event:Signup', label: 'Signup', visitors: 4, conversion: 0.4, dropoff: 0.6 }] }));
     }
@@ -215,6 +228,20 @@ describe('splithub analytics (built CLI)', () => {
     await run(dir, ['analytics', '--compare', 'site']);
     expect(seen.some((s) => s.includes('/properties/site/summary?') && s.includes('compare=previous'))).toBe(true);
     expect((await run(dir, ['analytics', 'site', '--compare', '2026-09-30..2026-09-01'])).json).toMatchObject({ code: 'INVALID_FLAG' });
+  });
+
+  it('lists, saves, runs and deletes saved funnels', async () => {
+    const dir = scratch('cloud');
+    expect((await run(dir, ['analytics', 'funnels', 'site'])).json).toMatchObject({ funnels: [{ id: 'fn1', name: 'Signup' }] });
+    // A new name creates; a saved name (any case) updates.
+    expect((await run(dir, ['analytics', 'funnels', 'site', '--save', 'Checkout', '--steps', 'page:/cart,goal:paid'])).json).toMatchObject({ funnel: { id: 'fn2', steps: ['page:/cart', 'goal:paid'] } });
+    expect((await run(dir, ['analytics', 'funnels', 'site', '--save', 'signup', '--steps', 'page:/,goal:paid'])).json).toMatchObject({ funnel: { id: 'fn1' } });
+    expect((await run(dir, ['analytics', 'funnels', 'site', '--save', 'Nope'])).json).toMatchObject({ code: 'USAGE' });
+    seen.length = 0;
+    await run(dir, ['analytics', 'funnel', 'site', '--funnel', 'Signup']);
+    expect(seen.some((s) => s.includes('/properties/site/funnel?') && s.includes('funnel=fn1') && !s.includes('steps=') && !s.includes('within='))).toBe(true);
+    expect((await run(dir, ['analytics', 'funnel', 'site', '--funnel', 'Missing'])).json).toMatchObject({ code: 'INVALID_FLAG' });
+    expect((await run(dir, ['analytics', 'funnels', 'site', '--delete', 'Signup'])).json).toMatchObject({ ok: true, id: 'fn1' });
   });
 
   it('exports CSV to stdout and applies saved segments', async () => {
