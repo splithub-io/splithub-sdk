@@ -18,9 +18,9 @@ import type { Flags } from './init';
 import { noteKind } from './notes';
 
 /** Visitor columns an experiment report can be filtered by (`--filter <key>=a,b`); `page` is analytics' word for `landing`. */
-export const EXPERIMENT_FILTERS = ['country', 'region', 'city', 'device', 'os', 'browser', 'language', 'host', 'source', 'channel', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'landing', 'page'] as const;
+export const EXPERIMENT_FILTERS = ['country', 'region', 'city', 'device', 'os', 'browser', 'language', 'host', 'platform', 'app_version', 'source', 'channel', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'landing', 'page'] as const;
 /** Dimensions a breakdown splits visitors by (`--by`); `page` is analytics' word for `url`. */
-export const EXPERIMENT_BY = ['country', 'region', 'city', 'device', 'os', 'browser', 'language', 'host', 'page', 'url', 'referrer', 'source', 'channel', 'landing', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as const;
+export const EXPERIMENT_BY = ['country', 'region', 'city', 'device', 'os', 'browser', 'language', 'host', 'platform', 'app_version', 'page', 'url', 'referrer', 'source', 'channel', 'landing', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as const;
 
 /** Column title of a dimension: `url` reads "page", as in analytics and the dashboard. */
 export const dimensionLabel = (by: string): string => (by === 'url' ? 'page' : by);

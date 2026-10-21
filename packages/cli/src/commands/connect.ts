@@ -16,7 +16,8 @@ import { relative } from 'node:path';
 import { cloudTarget, request } from '../api';
 import { loadConfig } from '../config-file';
 import { fail, printJson } from '../errors';
-import { listSourceFiles, requireConfig, type Framework } from '../project';
+import { isReactNativeApp, RN_PACKAGE } from '../app-setup';
+import { listSourceFiles, requireConfig, type AppKind, type Framework } from '../project';
 import { c } from '../ui';
 import { addProperty, afterAdded, printLive } from './analytics';
 import { str } from './analytics-reports';
@@ -124,14 +125,17 @@ export function wireProvider(root: string, key: string, force = false): WireResu
 }
 
 /** How to send events once the property is named, per setup. */
-export function trackSnippets(framework: Framework, key: string, publicKey?: string | null): { provider: string; script: string; track: string; identify: string } {
+export function trackSnippets(framework: Framework, key: string, publicKey?: string | null, app: AppKind | null = null): { provider: string; script: string; track: string; identify: string; screen?: string } {
   const s = propertySnippets(key, publicKey);
-  const provider = framework === 'next' ? s.provider.replace('<SplitHubProvider', '<SplitHubNextProvider') : s.provider;
+  const provider = framework === 'next' && !app ? s.provider.replace('<SplitHubProvider', '<SplitHubNextProvider') : s.provider;
+  // React Native re-exports the hooks of @splithub/react; an app has no sh.js.
+  const from = isReactNativeApp(app) ? RN_PACKAGE : '@splithub/react';
   return {
     provider,
-    script: s.script,
-    track: `import { useTrack } from '@splithub/react';\n\nconst track = useTrack();\ntrack('Signup', { plan: 'pro' }); // any name; props are optional`,
-    identify: `import { useIdentify } from '@splithub/react';\n\nconst identify = useIdentify();\nidentify(user.id, { plan: 'pro' }); // after sign-in; identify(null) on sign-out`,
+    script: app ? '' : s.script,
+    track: `import { useTrack } from '${from}';\n\nconst track = useTrack();\ntrack('Signup', { plan: 'pro' }); // any name; props are optional`,
+    identify: `import { useIdentify } from '${from}';\n\nconst identify = useIdentify();\nidentify(user.id, { plan: 'pro' }); // after sign-in; identify(null) on sign-out`,
+    ...(app ? { screen: `import { useScreen } from '${RN_PACKAGE}';\n\nuseScreen('Settings'); // screens without a navigation tracker` } : {}),
   };
 }
 
@@ -194,7 +198,7 @@ export async function connect(given: string | undefined, flags: Flags): Promise<
 
   const wired = wireProvider(project.root, key, Boolean(flags.force));
   const publicKey = typeof (config.storage as { key?: unknown }).key === 'string' && String((config.storage as { key?: unknown }).key).startsWith('pk_') ? String((config.storage as { key: string }).key) : null;
-  const snippets = trackSnippets(project.framework, key, publicKey);
+  const snippets = trackSnippets(project.framework, key, publicKey, project.app);
   const configFile = relative(project.root, project.configFile);
   const next = [...(created ? afterAdded(cloud, live) : []), 'deploy the app (development never sends to the cloud)', cloud ? `npx splithub analytics realtime ${key}` : `npx splithub analytics ${key}`];
   if (flags.json)
@@ -215,10 +219,11 @@ export async function connect(given: string | undefined, flags: Flags): Promise<
   else if (wired.status === 'already') ok(`already named on the provider in ${c.dim(`${wired.file}:${wired.line}`)}`);
   else if (wired.status === 'other') console.log(c.yellow(`! ${wired.file}:${wired.line} already sends to ${wired.current}. Run again with --force to switch to ${key}.`));
   else if (wired.status === 'many') console.log(c.yellow(`! More than one SplitHub provider (${wired.files?.join(', ')}): add property="${key}" to the one that wraps the app.`));
+  else if (project.app) console.log(`\nNo SplitHub provider in the code yet: run npx splithub init, or wrap the app once:\n  ${c.cyan(snippets.provider)}`);
   else if (project.framework === 'unknown') console.log(`\nPaste this into the <head> of every page:\n  ${c.cyan(snippets.script)}`);
   else console.log(`\nNo SplitHub provider in the code yet. Wrap the app once:\n  ${c.cyan(snippets.provider)}\nNo SDK? The script tag works too:\n  ${c.cyan(snippets.script)}`);
-  console.log(`\n${c.bold('Send events')} ${c.dim('(pageviews are sent for you)')}`);
-  if (project.framework === 'unknown' && wired.status === 'none') console.log(`  ${c.cyan("window.splithub.track('Signup', { plan: 'pro' })")}`);
+  console.log(`\n${c.bold('Send events')} ${c.dim(project.app ? '(screens come from the screen tracker, or useScreen)' : '(pageviews are sent for you)')}`);
+  if (project.framework === 'unknown' && !project.app && wired.status === 'none') console.log(`  ${c.cyan("window.splithub.track('Signup', { plan: 'pro' })")}`);
   else
     console.log(
       snippets.track
@@ -226,6 +231,7 @@ export async function connect(given: string | undefined, flags: Flags): Promise<
         .map((l) => `  ${c.cyan(l)}`)
         .join('\n')
     );
+  if (snippets.screen) console.log(`\n${snippets.screen.split('\n').map((l) => `  ${c.cyan(l)}`).join('\n')}`);
   console.log(c.dim(`\nTie visits to your users: useIdentify() (sh.js: splithub.identify(id)). Mark an event as a goal to count it as a conversion.`));
   console.log(c.dim(`Next: ${next.join(', then ')}.`));
 }

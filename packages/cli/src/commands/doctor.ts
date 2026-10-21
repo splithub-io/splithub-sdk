@@ -3,13 +3,15 @@ import { join, relative } from 'node:path';
 import { resolveTarget } from '../api';
 import { loadConfig } from '../config-file';
 import { printJson } from '../errors';
-import { detectProject, grepFiles, listSourceFiles } from '../project';
+import type { SplitHubConfig } from '@splithub/core';
+import { ASYNC_STORAGE, isNativeApp, isReactNativeApp, nativeSdkInstalled, nativeSetup, RN_PACKAGE } from '../app-setup';
+import { detectProject, grepFiles, listSourceFiles, type ProjectInfo } from '../project';
 import { findRefs } from '../refs';
 import { c } from '../ui';
 import { versionReport } from '../update';
 import type { Flags } from './init';
 
-type Level = 'ok' | 'warn' | 'error';
+export type Level = 'ok' | 'warn' | 'error';
 interface Check {
   level: Level;
   message: string;
@@ -23,6 +25,21 @@ export async function doctor(flags: Flags): Promise<void> {
   add('ok', `project "${project.name}" · ${project.framework} · ${project.packageManager}`);
   await versionChecks(project.root, add);
 
+  if (isNativeApp(project.app)) {
+    // Native SDKs take experiments from the cloud; there is no config file to check.
+    const read = (f: string) => {
+      try {
+        return readFileSync(f, 'utf8');
+      } catch {
+        return null;
+      }
+    };
+    const lines = nativeSetup(project.app, null);
+    if (nativeSdkInstalled(project.root, project.app, read)) add('ok', `app: ${project.app}, SplitHub SDK in the build files`);
+    else add('error', `app: ${project.app}, SplitHub SDK not found in the build files. Add it: ${lines.install.split('\n')[1]}`);
+    add('warn', 'app: create experiments in the dashboard; they reach installed apps through the cloud, no release needed');
+    return report(checks, flags);
+  }
   if (!project.configFile) {
     add('error', 'splithub.config.ts not found. Run `npx splithub init`.');
     return report(checks, flags);
@@ -42,6 +59,8 @@ export async function doctor(flags: Flags): Promise<void> {
   const providerHits = grepFiles(files, 'SplitHubProvider').concat(grepFiles(files, 'SplitHubNextProvider'));
   if (providerHits.length === 0) add('error', 'no <SplitHubProvider> found in source. Wrap your app once.');
   else add('ok', `provider in ${relative(project.root, providerHits[0]!)}`);
+
+  if (isReactNativeApp(project.app)) appChecks(project, config, add);
 
   if (project.framework === 'next') {
     const mw = ['middleware.ts', 'src/middleware.ts', 'middleware.js', 'src/middleware.js'].map((f) => join(project.root, f)).find((f) => existsSync(f));
@@ -87,6 +106,18 @@ export async function doctor(flags: Flags): Promise<void> {
   }
 
   return report(checks, flags);
+}
+
+/** React Native / Expo: the package, its storage module, and what the frozen config means for experiments. */
+export function appChecks(project: Pick<ProjectInfo, 'app' | 'deps'>, config: Pick<SplitHubConfig, 'experiments' | 'storage'>, add: (level: Level, message: string) => void): void {
+  if (!project.deps[RN_PACKAGE]) add('error', `app: ${RN_PACKAGE} is not in package.json. Install it: npm install ${RN_PACKAGE}`);
+  else add('ok', `app: ${project.app}, ${RN_PACKAGE} ${project.deps[RN_PACKAGE]}`);
+  if (!project.deps[ASYNC_STORAGE]) add('error', `app: ${ASYNC_STORAGE} is missing (the visitor id and the offline queue live there). Install it: ${project.app === 'expo' ? 'npx expo install' : 'npm install'} ${ASYNC_STORAGE}`);
+  for (const exp of config.experiments) {
+    if (exp.kind === 'redirect') add('warn', `${exp.key}: redirect experiments change URLs, so they do nothing in an app. Use a value or component experiment.`);
+  }
+  if (config.storage.mode === 'self') add('warn', 'app: self-hosted, so experiments only change with a store release (the config is built into the app). SplitHub Cloud starts and changes them live.');
+  else add('warn', 'app: splithub.config.ts is frozen into the binary until the next store release. Create new experiments in the dashboard so installed apps get them now; push config changes too.');
 }
 
 async function versionChecks(root: string, add: (level: Level, message: string) => void): Promise<void> {

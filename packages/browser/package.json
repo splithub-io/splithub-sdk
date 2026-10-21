@@ -1,6 +1,6 @@
 {
   "name": "@splithub/browser",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "SplitHub for sites without a build step: one script tag counts pages and events and runs redirect experiments.",
   "keywords": [
     "splithub",

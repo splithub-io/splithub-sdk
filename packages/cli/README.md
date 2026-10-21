@@ -1,10 +1,11 @@
 # splithub
 
-Experiments and web analytics for your app, from one command. Run it without arguments and it walks you through; add flags and `--json` when a coding agent runs it.
+Experiments and analytics for your website or app (React Native, Expo, iOS, Android), from one command. Run it without arguments and it walks you through; add flags and `--json` when a coding agent runs it.
 
 ```bash
 npx splithub                             # menu: set up, connect, create, results, start/pause, push — step by step
 npx splithub init                        # config, framework files (Next.js middleware + ingest route), agent skills
+                                         # in a React Native / Expo app: installs @splithub/react-native, wraps the app
 npx splithub init --mode self --db postgres   # events in your Postgres: writes splithub/store.ts (also mysql | custom | sqlite)
 npx splithub create                      # wizard; or flags:
 npx splithub create --kind value --id hero-title --variants control,direct \
@@ -14,7 +15,7 @@ npx splithub status                      # all experiments, verdict headline
 npx splithub results hero-title          # cloud: verdict, lift, P(beat), p-value, CI; self-hosted: raw numbers
 npx splithub plan --baseline 0.05 --mde 0.1   # visitors a test needs (asks SplitHub Cloud, no account needed)
 npx splithub report                      # Markdown for a PR comment (the `ci init` workflow posts it)
-npx splithub doctor                      # checks config, provider, middleware, route, code references, endpoint
+npx splithub doctor                      # checks config, provider, middleware, route, code references, endpoint (apps: SDK, storage)
 npx splithub ship hero-title --keep direct    # keep the winner in your code, remove the experiment
 npx splithub ci init                     # GitHub workflow: checks on PRs, results as a PR comment
 ```
@@ -28,19 +29,24 @@ One `track()` feeds both: the analytics reports and every experiment that measur
 
 ```bash
 npx splithub analytics connect           # pick or create a property and name it on your provider (or get the sh.js tag)
+npx splithub analytics create --name "Shop app" --kind app   # an app property: screens, versions, platforms
 npx splithub analytics                   # every property, last 30 days
 npx splithub analytics sh-x1h78w --by source --compare      # also page, channel, country, device, event, goal, variant…
 npx splithub analytics funnel sh-x1h78w --steps "page:/,event:Signup,goal:paid" --within 7d
 npx splithub analytics funnels sh-x1h78w --save Signup --steps "page:/,goal:signup"   # saved for the team
 npx splithub analytics funnel sh-x1h78w --funnel Signup     # run a saved funnel
 npx splithub analytics paths sh-x1h78w --page /pricing      # where visitors go next (--prev: where they came from)
-npx splithub analytics retention sh-x1h78w                  # who comes back, per weekly cohort
+npx splithub analytics retention sh-x1h78w --period day     # who comes back, per daily or weekly cohort
 npx splithub analytics realtime sh-x1h78w                   # who is on the site now
 npx splithub analytics segments --save "Paid" channel="Paid Search"   # saved filters; any report takes --segment Paid
 npx splithub analytics export sh-x1h78w --by page > pages.csv
 ```
 
-Every report takes `--days 7` or `--from --to`, `--filter country=DE` and `--json`.
+Every report takes `--days 7` or `--from --to`, `--filter country=DE` and `--json`. Apps add `--by platform` and `--by app_version` (also as filters, and on experiment results).
+
+## Apps
+
+`init` knows a React Native or Expo app: it installs `@splithub/react-native` with its storage module and wraps the app entry in the provider, with screen tracking for Expo Router or React Navigation. In a native iOS or Android project it prints the lines that add the Swift or Kotlin SDK. Apps ship their variants in the build, so create and change experiments in the dashboard: installed apps pick them up on the next launch.
 
 ## Notes, links, alerts
 

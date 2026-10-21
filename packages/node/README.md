@@ -48,6 +48,13 @@ Reads return raw numbers from your own database:
 The first variant is the control. `rawResults(config, store, id)` and `rawStatusTable(config, store)`
 give the same numbers in code. Verdicts, data-quality stars and recommendations come with SplitHub Cloud.
 
+## Apps
+
+The same handler takes events from apps built with `@splithub/react-native` (React Native, Expo).
+An app batch carries the app's info instead of a user agent: every stored event gets `platform`
+(`ios`, `android` ...; `web` for websites) and `app_version`, and the device, OS and host come from
+the app. Events sent while the app was offline arrive later with their original time.
+
 ## Bring your own database
 
 Implement the `Store` interface (three methods) against Postgres, Supabase,

@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "SplitHub Example",
+    "slug": "splithub-example",
+    "version": "1.0.0",
+    "scheme": "splithub-example",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": { "bundleIdentifier": "io.splithub.example", "buildNumber": "1", "supportsTablet": true },
+    "android": { "package": "io.splithub.example", "versionCode": 1 },
+    "plugins": ["expo-router"]
+  }
+}

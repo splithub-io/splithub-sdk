@@ -438,10 +438,13 @@ export interface NewProperty {
   name?: string;
   description?: string;
   goals?: string[];
+  /** Only `app` is written: `site` is the default, so files stay as they were. */
+  kind?: 'site' | 'app';
 }
 
 export function renderProperty(p: NewProperty): string {
   const parts: string[] = [];
+  if (p.kind === 'app') parts.push(`kind: 'app'`);
   if (p.status && p.status !== 'running') parts.push(`status: ${q(p.status)}`);
   if (p.name) parts.push(`name: ${q(p.name)}`);
   if (p.goals?.length) parts.push(`goals: [${p.goals.map(q).join(', ')}]`);

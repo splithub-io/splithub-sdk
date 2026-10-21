@@ -1,3 +1,5 @@
 packages:
   - 'packages/*'
   - 'examples/*'
+  # Expo would pull React Native into every install; the example installs on its own.
+  - '!examples/expo-app'

@@ -1,4 +1,4 @@
-import { EVENT_NAME_PATTERN, HOLDOUT_KEY, type EventBatch, type SplitHubEvent } from '@splithub/core';
+import { EVENT_NAME_PATTERN, HOLDOUT_KEY, type AppInfo, type EventBatch, type SplitHubEvent } from '@splithub/core';
 import type { StoredEvent } from './store';
 
 const ID = /^[a-z0-9_-]{8,64}$/i;
@@ -14,7 +14,7 @@ const MAX_SKEW_MS = 7 * 24 * 60 * 60 * 1000;
  * dropped on its own (`dropped`, with the first `errors`), so one bad goal key never takes the
  * exposures and pageviews of the same batch down with it.
  */
-export type ValidationResult = { ok: true; events: StoredEvent[]; dropped: number; errors: string[] } | { ok: false; error: string };
+export type ValidationResult = { ok: true; events: StoredEvent[]; dropped: number; errors: string[]; app?: AppInfo } | { ok: false; error: string };
 
 /** `expectedProject` null skips the name check (the caller already identified the project, e.g. by public key). */
 export function validateBatch(body: unknown, expectedProject: string | null, now = Date.now()): ValidationResult {
@@ -35,7 +35,37 @@ export function validateBatch(body: unknown, expectedProject: string | null, now
       if (errors.length < 5 && !errors.includes(e)) errors.push(e);
     } else out.push(e);
   }
-  return { ok: true, events: out, dropped, errors };
+  const app = sanitizeApp(batch.app);
+  return { ok: true, events: out, dropped, errors, ...(app ? { app } : {}) };
+}
+
+const APP_PLATFORMS = new Set<AppInfo['platform']>(['ios', 'android', 'macos', 'windows', 'linux']);
+const APP_DEVICES = new Set(['mobile', 'tablet', 'desktop']);
+
+function text(value: unknown, max: number): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const t = value.trim();
+  return t ? t.slice(0, max) : undefined;
+}
+
+/** The batch's `app` block, trimmed to its limits; undefined for websites or an unknown platform (the batch is then read as a website's). */
+export function sanitizeApp(raw: unknown): AppInfo | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const a = raw as Record<string, unknown>;
+  if (typeof a.platform !== 'string' || !APP_PLATFORMS.has(a.platform as AppInfo['platform'])) return undefined;
+  const out: AppInfo = { platform: a.platform as AppInfo['platform'] };
+  const id = text(a.id, 128);
+  const version = text(a.version, 32);
+  const build = text(a.build, 32);
+  const os = text(a.os, 32);
+  const model = text(a.model, 64);
+  if (id) out.id = id.toLowerCase();
+  if (version) out.version = version;
+  if (build) out.build = build;
+  if (os) out.os = os;
+  if (model) out.model = model;
+  if (typeof a.device === 'string' && APP_DEVICES.has(a.device)) out.device = a.device as AppInfo['device'];
+  return out;
 }
 
 function normalize(e: Partial<SplitHubEvent>, now: number): StoredEvent | string {

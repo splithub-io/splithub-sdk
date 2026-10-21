@@ -4,7 +4,8 @@ import { devNote, explainAssignment } from './dev';
 import { goalKeyFor, EVENT_NAME_PATTERN, getExperiment, HOLDOUT_KEY, isSplitHubConfig, pickProperty } from './config';
 import { EventQueue, createFetchTransport, type Transport } from './events';
 import { murmur3 } from './hash';
-import { newId } from './ids';
+import { newId, newSessionId, newVisitorId } from './ids';
+import { memoryStorage, safeGet, safeSet, type KeyValueStorage, type PlatformAdapter } from './platform';
 import {
   applyRemoteOverrides,
   fetchRemoteOverrides,
@@ -20,6 +21,7 @@ import { browserContext } from './targeting';
 import type { Assignment, Experiment, SplitHubConfig, TargetingContext, Variant } from './types';
 import {
   getOrCreateSessionId,
+  getOrCreateStoredId,
   getOrCreateVisitorId,
   hasVisitorId,
   isBrowser,
@@ -36,7 +38,10 @@ import {
 declare const __SPLITHUB_LITE__: true | undefined;
 
 export const SDK_VERSION = '0.1.0';
-/** First visit without cached overrides: the longest the client waits for them. The fetch usually takes ~150 ms. */
+/**
+ * First visit (or first app launch) without cached overrides: the longest the client waits for
+ * them. The fetch usually takes ~150 ms. Apps wait the same: later launches read the cache.
+ */
 export const REMOTE_WAIT_MS = 400;
 const DEV_NOTE = 'Development sends nothing to the cloud, so your own visits never reach the results. Deployed builds send as usual.';
 export const CLOUD_ENDPOINT = 'https://go.splithub.io/v1/events';
@@ -48,6 +53,10 @@ const MAX_ENGAGE_MS = 3_600_000;
 /** The app's user id (identify), kept across sessions; re-sent once per session. */
 const UID_KEY = 'sh_uid';
 const UID_SENT_KEY = 'sh_uid_sent';
+const SESSION_KEY = 'sh_sid';
+const EXPOSED_KEY = 'sh_exposed';
+/** An app away this long starts a new session when it comes back. */
+export const SESSION_GAP_MS = 30 * 60 * 1000;
 
 export interface ClientOptions {
   /** Provide on the server (from the cookie) so SSR and client agree. */
@@ -55,6 +64,14 @@ export interface ClientOptions {
   sessionId?: string;
   /** Custom transport, e.g. a no-op for tests or SSR. */
   transport?: Transport;
+  /**
+   * Apps (React Native, desktop): storage, app info and lifecycle instead of a browser page.
+   * The client then keeps the visitor in `storage`, persists unsent events (`sh_queue`), sends
+   * no pageviews of its own (call `screen()`), and starts a new session after 30 minutes in the background.
+   */
+  platform?: PlatformAdapter;
+  /** `sdk` of every batch. Default `core/<version>`; wrappers name themselves (`react-native/1.0.0`). */
+  sdk?: string;
   /**
    * Send the cloud key as `?key=` so page-hide batches can use `navigator.sendBeacon`.
    * On by default for SplitHub Cloud (the key is public); off for a custom endpoint,
@@ -114,6 +131,7 @@ export interface ClientOptions {
 export interface SplitHubClient {
   readonly config: SplitHubConfig;
   readonly visitorId: string;
+  /** May change during the client's life (an app back after 30 minutes away): read it each time, do not keep a copy. */
   readonly sessionId: string;
   /** Targeting context used for assignments. */
   readonly context: TargetingContext;
@@ -147,6 +165,12 @@ export interface SplitHubClient {
    */
   pageview(path?: string): void;
   /**
+   * A screen of an app (or a virtual page on the web): a `page` event with url `/${name}` (or
+   * `name` itself when it starts with `/`) and the name as title. `props` are accepted for
+   * later; page rows carry none on the wire yet.
+   */
+  screen(name: string, props?: Record<string, unknown>): void;
+  /**
    * Ties this visitor to your user id (1..128 characters) with optional flat traits
    * (`{ plan: 'pro' }`). Remembered in the browser and re-sent once per session; `null` forgets it.
    */
@@ -155,6 +179,11 @@ export interface SplitHubClient {
   autoGoals(root?: Document | HTMLElement): () => void;
   flush(): Promise<void>;
   destroy(): void;
+  /**
+   * Binds the app lifecycle (background / foreground) again after `destroy()`, as a provider does when
+   * StrictMode mounts it a second time. Idempotent; a no-op on the web, where the next event binds.
+   */
+  resume(): void;
 }
 
 function resolveEndpoint(config: SplitHubConfig): { endpoint: string; key?: string } {
@@ -167,7 +196,14 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
     throw new Error('[splithub] pass the object returned by defineConfig() from splithub.config.ts');
   }
 
-  const browser = isBrowser();
+  // sh.js (LITE) never runs in an app: every `typeof __SPLITHUB_LITE__ === 'undefined' && adapter` below drops the app code from it.
+  const adapter: PlatformAdapter | null = typeof __SPLITHUB_LITE__ === 'undefined' ? options.platform ?? null : null;
+  const app = typeof __SPLITHUB_LITE__ === 'undefined' && adapter !== null;
+  const browser = !app && isBrowser();
+  // Remembers the visitor between pages or launches: a browser page or an app. The rest is a server.
+  const persistent = browser || app;
+  const sessionStore: KeyValueStorage | null = typeof __SPLITHUB_LITE__ === 'undefined' && adapter ? adapter.session ?? memoryStorage() : null;
+  const kv = (kind: 'local' | 'session'): KeyValueStorage | null => (typeof __SPLITHUB_LITE__ === 'undefined' && adapter ? (kind === 'local' ? adapter.storage : sessionStore) : browser ? browserStorage(kind) : null);
 
   // Remote overrides: apply the cached copy synchronously, refresh in the background.
   // A first visit has no cache: wait briefly for the fresh copy instead, so a test
@@ -182,8 +218,11 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
   if (options.remote?.overrides) {
     effective = applyRemoteOverrides(config, options.remote.overrides);
     geo = options.remote.overrides.ctx;
-  } else if (browser && publicKey && !options.remote?.disabled) {
-    const cached = readRemoteCache(publicKey);
+  } else if (persistent && publicKey && !options.remote?.disabled) {
+    // Apps have no file declaring the pushed experiments: they ask for those too (`all`), cached apart.
+    // Websites keep the plain answer, the one sh.js and every other web client shares.
+    const all = app;
+    const cached = readRemoteCache(publicKey, adapter?.storage, all);
     if (cached) {
       effective = applyRemoteOverrides(config, cached.overrides);
       geo = cached.overrides.ctx;
@@ -191,9 +230,9 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
     }
     const stale = !cached || Date.now() - cached.fetchedAt > (options.remote?.ttlMs ?? REMOTE_TTL_MS);
     if (stale) {
-      const url = options.remote?.url ?? resolveOverridesUrl(config.storage.endpoint ?? CLOUD_ENDPOINT, publicKey);
+      const url = options.remote?.url ?? resolveOverridesUrl(config.storage.endpoint ?? CLOUD_ENDPOINT, publicKey, all);
       const fetched = fetchRemoteOverrides(url).then((fresh) => {
-        if (fresh) writeRemoteCache(publicKey, fresh);
+        if (fresh) writeRemoteCache(publicKey, fresh, adapter?.storage, all);
         return fresh;
       });
       arriving = fetched;
@@ -210,16 +249,17 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
   }
   config = effective;
 
-  const hadVisitor = browser && !options.visitorId ? hasVisitorId(config.visitorKey) : undefined;
-  const visitorId = options.visitorId ?? (browser ? getOrCreateVisitorId(config.visitorKey) : 'server');
+  const hadVisitor = persistent && !options.visitorId ? (typeof __SPLITHUB_LITE__ === 'undefined' && adapter ? safeGet(adapter.storage, config.visitorKey) !== null : hasVisitorId(config.visitorKey)) : undefined;
+  const visitorId = options.visitorId ?? (typeof __SPLITHUB_LITE__ === 'undefined' && adapter ? getOrCreateStoredId(adapter.storage, config.visitorKey, newVisitorId) : browser ? getOrCreateVisitorId(config.visitorKey) : 'server');
   // On the server without the visitor's id, any variant would be a guess the browser then
   // contradicts; the control is the stable answer until the id is passed in.
-  const noVisitor = !browser && !options.visitorId;
+  const noVisitor = !persistent && !options.visitorId;
   // On the server each visitor gets a session id of their own, so the cloud never merges
   // the visits of different visitors that share one server.
-  const sessionId = options.sessionId ?? (browser ? getOrCreateSessionId() : options.visitorId ? `srv_${murmur3(options.visitorId).toString(36)}` : 'server');
+  let sessionId = options.sessionId ?? (typeof __SPLITHUB_LITE__ === 'undefined' && adapter ? getOrCreateStoredId(sessionStore, SESSION_KEY, newSessionId) : browser ? getOrCreateSessionId() : options.visitorId ? `srv_${murmur3(options.visitorId).toString(36)}` : 'server');
   // In the browser the device's own time zone beats the one guessed from the IP.
   const contextFor = (g: RemoteOverrides['ctx'] | undefined): TargetingContext => {
+    if (typeof __SPLITHUB_LITE__ === 'undefined' && adapter) return { ...stripUndefined(g ?? {}), ...appContext(adapter), ...(hadVisitor === undefined ? {} : { visitor: hadVisitor ? 'returning' : 'new' }), ...(options.context ?? {}) };
     if (!browser) return { ...(g ?? {}), ...(options.context ?? {}) };
     const forPage = g?.timezone ? { ...g, timezone: undefined } : g;
     return browserContext({ ...stripUndefined(forPage ?? {}), ...(hadVisitor === undefined ? {} : { visitor: hadVisitor ? 'returning' : 'new' }), ...(options.context ?? {}) });
@@ -237,7 +277,7 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
       warn(`sh_force asks for variant "${forced}" of "${key}", which has ${experiment.variants.map((v) => `"${v.key}"`).join(', ')}; showing the control, not counted.`);
     }
   }
-  const disabled = options.disabled ?? (!browser && !options.transport);
+  const disabled = options.disabled ?? (!persistent && !options.transport);
   // The cloud refuses a project with nothing running (429) and drops exposures of drafts.
   // Sending them anyway only fills the console with errors, so they stay local (and visible in debug mode).
   const cloud = config.storage.mode === 'cloud';
@@ -267,17 +307,26 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
   const transport = options.transport ?? createFetchTransport({
     ...resolveEndpoint(config),
     keyInQuery: options.keyInQuery ?? (config.storage.mode === 'cloud' && !config.storage.endpoint),
+    keepalive: !app,
   });
   const queue = new EventQueue({
     project: config.project,
-    sdk: `core/${SDK_VERSION}`,
+    sdk: options.sdk ?? `core/${SDK_VERSION}`,
     transport,
     onError: options.onError,
+    ...(typeof __SPLITHUB_LITE__ === 'undefined' && adapter ? { storage: adapter.storage, ...(adapter.app ? { app: adapter.app } : {}) } : {}),
   });
-  const exposed = browser ? sessionExposureSet() : new Set<string>();
+  const exposed = browser ? sessionExposureSet() : typeof __SPLITHUB_LITE__ === 'undefined' && adapter ? storedSet(sessionStore, EXPOSED_KEY) : new Set<string>();
+  const saveExposed = (): void => {
+    if (browser) persistExposureSet(exposed);
+    else if (typeof __SPLITHUB_LITE__ === 'undefined' && adapter) safeSet(sessionStore, EXPOSED_KEY, JSON.stringify([...exposed]));
+  };
 
+  // Apps: the screen on show, set by screen(); it is the `url` of goals and events.
+  let screenUrl: string | null = null;
+  let screenTitle = '';
   const currentUrl = (): string | undefined =>
-    browser ? location.pathname + location.search : undefined;
+    browser ? location.pathname + location.search : screenUrl ?? undefined;
   // Read once, on the first page this client sees: a redirect variant or a later route change
   // would otherwise report the site itself as the referrer.
   const entryRef = browser ? sessionReferrer() : undefined;
@@ -294,7 +343,7 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
       return;
     }
     exposed.add(dedupKey);
-    if (browser) persistExposureSet(exposed);
+    saveExposed();
     const event = { id: newId('e_'), type: 'exposure' as const, exp: HOLDOUT_KEY, var: group, vid: visitorId, sid: sessionId, ts, url: currentUrl(), ...refField };
     debugLog('exposure', `${HOLDOUT_KEY} / ${group} recorded`, event);
     queue.push(event);
@@ -318,7 +367,7 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
     const dedupKey = `${experimentKey}:${a.variant.key}`;
     if (exposed.has(dedupKey)) return;
     exposed.add(dedupKey);
-    if (browser) persistExposureSet(exposed);
+    saveExposed();
     const event = { id: newId('e_'), type: 'exposure' as const, exp: experimentKey, var: a.variant.key, vid: visitorId, sid: sessionId, ts, url: currentUrl(), ...refField };
     debugLog('exposure', `${experimentKey} / ${a.variant.key} recorded`, event);
     queue.push(event);
@@ -377,7 +426,9 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
   // Engagement: visible time and deepest scroll of the current page, sent as `engage` when the
   // visitor moves on (route change) or leaves (page hidden, by beacon).
   let engage: { prop: string; url: string; ms: number; since: number | null; scroll: number } | null = null;
-  const pageVisible = (): boolean => typeof document === 'undefined' || document.visibilityState !== 'hidden';
+  // Apps: in the foreground. Engagement on an app is time on screen.
+  let appVisible = true;
+  const pageVisible = (): boolean => (app ? appVisible : typeof document === 'undefined' || document.visibilityState !== 'hidden');
   const scrollDepth = (): number => {
     if (!browser) return 0;
     const doc = document.documentElement;
@@ -403,20 +454,20 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
   };
 
   // Identify: the app's user id, sent once per session for each id and traits.
-  let sentIdentity: string | null = browser ? readStored('sessionStorage', UID_SENT_KEY) : null;
+  let sentIdentity: string | null = safeGet(kv('session'), UID_SENT_KEY);
   const sendIdentify = (uid: string, traits: Record<string, string | number | boolean> | undefined, ts: number): void => {
     if (!wanted || isBot() || noVisitor) return;
     const mark = `${uid}\n${traits ? JSON.stringify(traits) : ''}`;
     withProperty(() => {
       const prop = property();
       // Another client on the page shares the session mark: the same identity goes out once.
-      if (!prop || isBot() || sentIdentity === mark || (browser && readStored('sessionStorage', UID_SENT_KEY) === mark)) return;
+      if (!prop || isBot() || sentIdentity === mark || safeGet(kv('session'), UID_SENT_KEY) === mark) return;
       if (typeof __SPLITHUB_LITE__ === 'undefined' && devLocal) {
         hold(`i:${prop}`, 'pageview', `${prop}: identify not sent: development never sends to the cloud`);
         return;
       }
       sentIdentity = mark;
-      if (browser) writeStored('sessionStorage', UID_SENT_KEY, mark);
+      safeSet(kv('session'), UID_SENT_KEY, mark);
       const event = { id: newId('i_'), type: 'identify' as const, prop, vid: visitorId, sid: sessionId, ts, uid, ...(traits ? { traits } : {}) };
       debugLog('info', `${prop}: identify ${uid}`, event);
       queue.push(event);
@@ -424,7 +475,7 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
   };
   // A returning user's id goes out once in each new session, with its first page.
   const resendIdentity = (ts: number): void => {
-    const uid = browser ? readStored('localStorage', UID_KEY) : null;
+    const uid = safeGet(kv('local'), UID_KEY);
     if (uid && !(sentIdentity ?? '').startsWith(`${uid}\n`)) sendIdentify(uid, undefined, ts);
   };
 
@@ -458,7 +509,7 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
   // Analytics: pageviews and events for the property. The provider and a route hook may report
   // the same page twice in a row (StrictMode mounts twice); one view per URL per second is kept.
   let lastPage: { url: string; ts: number } | null = null;
-  const sendPage = (path: string, ts: number): void => {
+  const sendPage = (path: string, ts: number, screen?: string): void => {
     if (isBot()) return;
     if (!wanted || noVisitor) {
       sendPageGoals(path, ts);
@@ -466,7 +517,7 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
     }
     // Read the page now: by the time the property is known the visitor may be elsewhere.
     const url = browser && path === pagePath() ? pageUrl() : path;
-    const title = browser && typeof document !== 'undefined' ? document.title.slice(0, 200) : '';
+    const title = screen !== undefined ? screen.slice(0, 200) : browser && typeof document !== 'undefined' ? document.title.slice(0, 200) : '';
     const ref = browser && typeof document !== 'undefined' ? document.referrer.slice(0, 512) : '';
     withProperty(() => {
       const prop = property();
@@ -487,7 +538,7 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
       const event = { id: newId('p_'), type: 'page' as const, prop, vid: visitorId, sid: sessionId, ts, url, ...(title ? { title } : {}), ...(ref ? { ref } : {}) };
       debugLog('pageview', `${prop}: ${url}`, event);
       queue.push(event);
-      if (browser) engage = { prop, url, ms: 0, since: pageVisible() ? ts : null, scroll: scrollDepth() };
+      if (persistent) engage = { prop, url, ms: 0, since: pageVisible() ? ts : null, scroll: scrollDepth() };
       resendIdentity(ts);
     });
   };
@@ -524,6 +575,7 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
 
   const emit = (name: string, props: Record<string, unknown> | undefined): void => {
     if (disabled || isBot()) return;
+    bindApp();
     const ts = Date.now();
     props = fitProps(props, `event "${name}"`);
     // After the ready handler has sent the waiting exposures: a goal only converts a visitor already in the experiment.
@@ -575,6 +627,43 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
     };
   };
 
+  // Apps: background closes the screen's engagement and sends the queue; coming back after
+  // 30 minutes starts a new session, which opens with the screen on show.
+  let unbindApp: (() => void) | null = null;
+  let backgroundAt: number | null = null;
+  const rotateSession = (now: number): void => {
+    if (!(typeof __SPLITHUB_LITE__ === 'undefined')) return;
+    sessionId = newSessionId();
+    safeSet(sessionStore, SESSION_KEY, sessionId);
+    sentIdentity = null;
+    safeSet(sessionStore, UID_SENT_KEY, null);
+    lastPage = null;
+    debugLog('info', `new session ${sessionId} after the app was away`);
+    if (screenUrl && !pending) sendPage(screenUrl, now, screenTitle);
+  };
+  const bindApp = (): void => {
+    if (!(typeof __SPLITHUB_LITE__ === 'undefined') || !adapter || unbindApp || disabled) return;
+    const offBackground = adapter.onBackground?.(() => {
+      if (backgroundAt !== null) return;
+      backgroundAt = Date.now();
+      appVisible = false;
+      emitEngage(false);
+      void queue.flush(false);
+    });
+    const offForeground = adapter.onForeground?.(() => {
+      const now = Date.now();
+      const away = backgroundAt === null ? 0 : now - backgroundAt;
+      backgroundAt = null;
+      appVisible = true;
+      if (away >= SESSION_GAP_MS && !options.sessionId) rotateSession(now);
+      if (engage && engage.since === null) engage.since = now;
+    });
+    unbindApp = () => {
+      offBackground?.();
+      offForeground?.();
+    };
+  };
+
   const ready: Promise<void> = waitFor
     ? waitFor.then((fresh) => {
         if (fresh) {
@@ -611,7 +700,9 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
       return config;
     },
     visitorId,
-    sessionId,
+    get sessionId() {
+      return sessionId;
+    },
     get context() {
       return context;
     },
@@ -688,10 +779,33 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
       sendPage(current, Date.now());
     },
 
+    screen(name) {
+      // sh.js does not expose screen(): its pageviews follow the page.
+      if (!(typeof __SPLITHUB_LITE__ === 'undefined')) return;
+      const label = typeof name === 'string' ? name.trim() : '';
+      if (!label) {
+        warn('screen() needs the name of the screen.');
+        return;
+      }
+      const url = label.startsWith('/') ? label : `/${label}`;
+      if (app) {
+        screenUrl = url;
+        screenTitle = label;
+      }
+      bindApp();
+      if (disabled) return;
+      const ts = Date.now();
+      if (pending) {
+        void ready.then(() => sendPage(url, ts, label));
+        return;
+      }
+      sendPage(url, ts, label);
+    },
+
     identify(uid, traits) {
       if (uid === null) {
-        writeStored('localStorage', UID_KEY, null);
-        writeStored('sessionStorage', UID_SENT_KEY, null);
+        safeSet(kv('local'), UID_KEY, null);
+        safeSet(kv('session'), UID_SENT_KEY, null);
         sentIdentity = null;
         return;
       }
@@ -700,7 +814,7 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
         warn('identify() needs a user id of 1 to 128 characters.');
         return;
       }
-      if (browser) writeStored('localStorage', UID_KEY, id);
+      safeSet(kv('local'), UID_KEY, id);
       if (disabled || isBot()) return;
       sendIdentify(id, cleanTraits(traits), Date.now());
     },
@@ -726,6 +840,7 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
     },
 
     flush: () => queue.flush(false),
+    resume: () => bindApp(),
     // Unbinds the page listeners; pending events are kept and a later event binds again,
     // so a provider may destroy on unmount even under StrictMode's double mount.
     destroy: () => {
@@ -734,11 +849,14 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
       unwatch = null;
       unbindPage?.();
       unbindPage = null;
+      unbindApp?.();
+      unbindApp = null;
       for (const prop of claimed) releaseAnalytics(`${endpointKey}|${prop}`, owner);
       claimed.clear();
     },
   };
 
+  bindApp();
   if (browser && isDebug()) {
     (window as unknown as { __splithub?: SplitHubClient }).__splithub = client;
     debugLog('info', `client ready · ${config.experiments.length} experiments · visitor ${visitorId} · ${config.storage.mode} mode`, { context });
@@ -766,6 +884,37 @@ function onNavigation(listener: () => void): () => void {
   }
   navListeners.add(listener);
   return () => void navListeners.delete(listener);
+}
+
+/** Browser storage as a KeyValueStorage, silent when blocked. */
+function browserStorage(kind: 'local' | 'session'): KeyValueStorage {
+  const area = kind === 'local' ? 'localStorage' : 'sessionStorage';
+  return {
+    getItem: (k) => readStored(area, k),
+    setItem: (k, v) => writeStored(area, k, v),
+    removeItem: (k) => writeStored(area, k, null),
+  };
+}
+
+function storedSet(storage: KeyValueStorage | null, key: string): Set<string> {
+  try {
+    const raw = safeGet(storage, key);
+    const list = raw ? (JSON.parse(raw) as unknown) : null;
+    return new Set(Array.isArray(list) ? list.filter((x): x is string => typeof x === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/** An app's targeting context: what the adapter says, with platform, version and OS filled from `app`. */
+function appContext(adapter: PlatformAdapter): TargetingContext {
+  const info = adapter.app;
+  return {
+    ...(info ? { platform: info.platform, os: info.platform } : {}),
+    ...(info?.version ? { appVersion: info.version } : {}),
+    ...(info?.device ? { device: info.device } : {}),
+    ...stripUndefined(adapter.context ?? {}),
+  };
 }
 
 function stripUndefined<T extends object>(o: T): Partial<T> {

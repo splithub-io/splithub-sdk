@@ -7,7 +7,9 @@ export { propertyCountsSql, propertyCountsFromRows, storedEventFromRow, rawPrope
 export type { PropertyCountsSqlOptions, PropertySql, RawPropertyReport } from './analytics';
 export { rawResults, rawStatusTable, resultsExperiment, ANALYSIS_UNAVAILABLE } from './raw';
 export type { RawResults, RawStatusRow, RawVariant, RawMetric } from './raw';
-export { validateBatch } from './validate';
+export { validateBatch, sanitizeApp } from './validate';
+export { appDimensions, withAppDimensions } from './app';
+export type { AppDimensions } from './app';
 export type { ValidationResult } from './validate';
 export { ATTRIBUTION_SKEW_MS, GOAL_DAILY_CAP, attributeVariants, variantCountsSql, countsFromRow, revenueOf } from './attribution';
 export type { VariantCounts, AttributedCounts, AttributionEvent, SqlDialect, VariantCountsSql, VariantCountsSqlOptions } from './attribution';

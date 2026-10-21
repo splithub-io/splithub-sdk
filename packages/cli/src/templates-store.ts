@@ -27,10 +27,14 @@ CREATE TABLE IF NOT EXISTS splithub_events (
   host        text,
   country     text,
   device      text,
-  browser     text
+  browser     text,
+  platform    text,                     -- web | ios | android | macos | windows | linux
+  app_version text                      -- the app's version; null on websites
 );
 CREATE INDEX IF NOT EXISTS splithub_events_exp  ON splithub_events (type, experiment, visitor_id, ts);
 CREATE INDEX IF NOT EXISTS splithub_events_goal ON splithub_events (type, goal, visitor_id, ts);
+-- Tables from before the app columns (the store also adds them on its first insert):
+ALTER TABLE splithub_events ADD COLUMN IF NOT EXISTS platform text, ADD COLUMN IF NOT EXISTS app_version text;
 \`;
 
 // The attribution rule shared by every SplitHub store (first exposure, 60 s clock skew, 50 goals per visitor and day).
@@ -40,17 +44,29 @@ const counts = variantCountsSql({ dialect: 'postgres', table: 'splithub_events' 
 const prop = propertyCountsSql({ dialect: 'postgres', table: 'splithub_events' });
 
 export function pgStore(pool: Pool = new Pool({ connectionString: process.env.DATABASE_URL })): Store {
+  // A table made before the app columns gets them on the first insert. Without ALTER rights they are left out.
+  let appColumns: Promise<boolean> | null = null;
+  const ensureAppColumns = (): Promise<boolean> =>
+    (appColumns ??= (async () => {
+      const have = async () =>
+        (await pool.query("SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'splithub_events' AND column_name IN ('platform', 'app_version')")).rows.length === 2;
+      if (await have()) return true;
+      await pool.query('ALTER TABLE splithub_events ADD COLUMN IF NOT EXISTS platform text, ADD COLUMN IF NOT EXISTS app_version text').catch(() => undefined);
+      return have();
+    })().catch(() => false));
   return {
     async insertEvents(events: StoredEvent[]) {
       if (events.length === 0) return 0;
-      const cols = 15;
+      const app = await ensureAppColumns();
+      const cols = app ? 17 : 15;
       const values: unknown[] = [];
       const rows = events.map((e, i) => {
         values.push(e.id, e.type, e.experiment, e.variant, e.goal, e.visitorId, e.sessionId, e.ts, e.url, e.props ? JSON.stringify(e.props) : null, e.receivedAt, e.host ?? null, e.country ?? null, e.device ?? null, e.browser ?? null);
+        if (app) values.push(e.platform ?? null, e.app_version ?? null);
         return '(' + Array.from({ length: cols }, (_, j) => '$' + (i * cols + j + 1)).join(', ') + ')';
       });
       const r = await pool.query(
-        'INSERT INTO splithub_events (id, type, experiment, variant, goal, visitor_id, session_id, ts, url, props, received_at, host, country, device, browser) VALUES ' + rows.join(', ') + ' ON CONFLICT (id) DO NOTHING',
+        'INSERT INTO splithub_events (id, type, experiment, variant, goal, visitor_id, session_id, ts, url, props, received_at, host, country, device, browser' + (app ? ', platform, app_version' : '') + ') VALUES ' + rows.join(', ') + ' ON CONFLICT (id) DO NOTHING',
         values
       );
       return r.rowCount ?? 0;
@@ -100,6 +116,8 @@ CREATE TABLE IF NOT EXISTS splithub_events (
   country     VARCHAR(8) NULL,
   device      VARCHAR(16) NULL,
   browser     VARCHAR(32) NULL,
+  platform    VARCHAR(16) NULL,         -- web | ios | android | macos | windows | linux
+  app_version VARCHAR(32) NULL,         -- the app's version; null on websites
   INDEX splithub_events_exp (type, experiment, visitor_id, ts),
   INDEX splithub_events_goal (type, goal, visitor_id, ts)
 );
@@ -112,12 +130,26 @@ const counts = variantCountsSql({ dialect: 'mysql', table: 'splithub_events' });
 const prop = propertyCountsSql({ dialect: 'mysql', table: 'splithub_events' });
 
 export function mysqlStore(pool: Pool = mysql.createPool(process.env.DATABASE_URL ?? '')): Store {
+  // A table made before the app columns gets them on the first insert. Without ALTER rights they are left out.
+  let appColumns: Promise<boolean> | null = null;
+  const ensureAppColumns = (): Promise<boolean> =>
+    (appColumns ??= (async () => {
+      const have = async () => {
+        const [rows] = await pool.query("SELECT COLUMN_NAME AS name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'splithub_events' AND COLUMN_NAME IN ('platform', 'app_version')");
+        return new Set((rows as Array<{ name: string }>).map((r) => r.name));
+      };
+      const found = await have();
+      if (!found.has('platform')) await pool.query('ALTER TABLE splithub_events ADD COLUMN platform VARCHAR(16) NULL').catch(() => undefined);
+      if (!found.has('app_version')) await pool.query('ALTER TABLE splithub_events ADD COLUMN app_version VARCHAR(32) NULL').catch(() => undefined);
+      return (await have()).size === 2;
+    })().catch(() => false));
   return {
     async insertEvents(events: StoredEvent[]) {
       if (events.length === 0) return 0;
-      const values = events.map((e) => [e.id, e.type, e.experiment, e.variant, e.goal, e.visitorId, e.sessionId, e.ts, e.url, e.props ? JSON.stringify(e.props) : null, e.receivedAt, e.host ?? null, e.country ?? null, e.device ?? null, e.browser ?? null]);
+      const app = await ensureAppColumns();
+      const values = events.map((e) => [e.id, e.type, e.experiment, e.variant, e.goal, e.visitorId, e.sessionId, e.ts, e.url, e.props ? JSON.stringify(e.props) : null, e.receivedAt, e.host ?? null, e.country ?? null, e.device ?? null, e.browser ?? null, ...(app ? [e.platform ?? null, e.app_version ?? null] : [])]);
       const [r] = await pool.query(
-        'INSERT IGNORE INTO splithub_events (id, type, experiment, variant, goal, visitor_id, session_id, ts, url, props, received_at, host, country, device, browser) VALUES ?',
+        'INSERT IGNORE INTO splithub_events (id, type, experiment, variant, goal, visitor_id, session_id, ts, url, props, received_at, host, country, device, browser' + (app ? ', platform, app_version' : '') + ') VALUES ?',
         [values]
       );
       return (r as { affectedRows: number }).affectedRows;
@@ -160,7 +192,8 @@ export const CUSTOM_STORE = `import { attributeVariants, type ExperimentSummary,
  *   return attributeVariants(events, experiment, goal).
  * Columns worth keeping: id (unique, dedupe on it), type, experiment, variant,
  * goal, visitor_id, session_id, ts, url, props (json), received_at, host,
- * country, device, browser.
+ * country, device, browser, platform (web | ios | android | macos | windows | linux)
+ * and app_version (apps only).
  * Analytics (optional): \`page\`, \`event\`, \`engage\` and \`identify\` rows carry the
  * property key in \`experiment\` (and the event name in \`goal\`); engage props are
  * { ms, scroll }, identify props { uid, traits }. Store them like the others and add

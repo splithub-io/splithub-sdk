@@ -2,6 +2,52 @@
 
 Every package in this repository is released together under one version.
 
+## 0.5.0
+
+SplitHub now works in apps, next to websites. The same experiments, the same `track()` and the same reports, for React Native, Expo, iOS and Android.
+
+### Apps
+
+- **`@splithub/react-native`** (new). `SplitHubProvider`, `<Experiment>` / `<Variant>` and the hooks you know from `@splithub/react` (`useVariant`, `useValue`, `useTrack`, `useIdentify`, `useScreen`), for React Native 0.72+ and Expo. Variants are decided on the device before the first render. Storage is MMKV when installed, else AsyncStorage (call `prepare()` before the splash screen hides). Development builds send nothing.
+- **Screens.** `<ExpoRouterScreens />` and `<NavigationScreens />` (or `useExpoRouterTracking()` / `useNavigationTracking(ref)`) count every screen as a page of your analytics property: the route is the url, the screen name the title.
+- **Offline.** Events wait on the device (up to 1,000) and go out later with their original time. A new session starts after 30 minutes in the background.
+- **Experiments from the cloud.** An app can't redeploy in minutes, so start, pause, weights, values and new `value` experiments made in the dashboard reach installed apps on the next launch. The first launch waits up to 400 ms for them and shows the control meanwhile.
+- **Native SDKs** in `sdks/`: `SplitHub` for iOS 14+ and macOS 11+ (Swift package, SwiftUI helpers; add this repository's URL in Xcode) and `io.splithub:splithub` for Android (Kotlin, min SDK 21, with `io.splithub:splithub-compose` for Jetpack Compose). Same hash as `@splithub/core`, checked against shared test vectors, so a visitor gets the same variant on every platform.
+- **`examples/expo-app`**: Expo Router, an experiment, screens and an event.
+
+### Core (`@splithub/core`)
+
+- `createClient(config, { platform })` takes a `PlatformAdapter` (synchronous storage, app info, background / foreground) for apps. With it the client keeps the visitor in that storage, sends pageviews only from `client.screen(name)` and persists unsent events. `memoryStorage()` is a ready storage for tests.
+- **Targeting by platform and app version.** New flow fields `platform` (`web`, `ios`, `android`, `macos`, `windows`, `linux`) and `app_version`, and the ops `gte` / `lt`. Versions compare part by part (`2.10.0` is after `2.9`).
+
+### React (`@splithub/react`)
+
+- `useScreen(name)`, and `SplitHubProvider` takes a ready `client` without a `config`. Nothing touches `document` in React Native.
+
+### CLI (`npx splithub`)
+
+- **`splithub init` knows apps.** In a React Native or Expo project it installs `@splithub/react-native` with its storage module and wraps the app entry (`App.tsx` or `app/_layout.tsx`) with screen tracking. In a native iOS or Android project it prints the install lines and a quick start.
+- **`splithub doctor`** checks the app package and its storage module, warns about redirect experiments (they do nothing in an app), and finds the SDK in native build files.
+- **`splithub analytics create --kind app`**: a property for an app (the default in an app project).
+- **`splithub analytics retention`** takes `--period day|week` and `--from --to`, and shows users per cohort.
+- `--by platform` / `--by app_version` and the same filters on analytics reports and experiment results.
+- New agent skill `splithub-apps`.
+
+### MCP (`@splithub/mcp`)
+
+- `splithub_init` and `splithub_doctor` cover apps; `splithub_property_create` takes `kind: site | app`.
+- `platform` and `app_version` as a filter and a `by` dimension on results, breakdowns and analytics reports; `splithub_analytics_retention` answers `cohorts[] { start, users, retained[] }`.
+
+### Self-hosted
+
+- `@splithub/node` accepts app batches and stores `platform` and `app_version` with every event (`web` for websites). `@splithub/adapter-sqlite`, `@splithub/adapter-d1` and the Postgres / MySQL stores written by `splithub init` add the two columns to existing tables on their own (`d1Migrations()` lists the D1 statements).
+
+### SplitHub Cloud
+
+- Analytics properties have a kind, site or app. App properties show screens, platforms and app versions, and a retention report by day or week.
+- Results, breakdowns and every analytics report can be split or filtered by platform and app version.
+- Allowed domains of an experiment or a property can name an app id (`com.acme.shop`); a list of websites only still refuses apps.
+
 ## 0.4.3
 
 - READMEs and npm descriptions cover what SplitHub does today: web analytics (pageviews, events, sources, funnels, paths, retention, segments), the analytics commands and MCP tools, notes, short links and alerts. `@splithub/browser` gets its own README. No code changes.

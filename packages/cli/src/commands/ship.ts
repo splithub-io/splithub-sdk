@@ -2,8 +2,7 @@
 // config and rewrite the code so it behaves like the kept variant. Returns the diff and
 // whatever it could not rewrite safely.
 import { readFileSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { join, relative } from 'node:path';
+import { relative } from 'node:path';
 import type * as TS from 'typescript';
 import { archiveLive } from '../api';
 import { shipSource, type Leftover } from '../codemod';
@@ -12,21 +11,14 @@ import { unifiedDiff } from '../diff';
 import { fail, printJson } from '../errors';
 import { grepFiles, listSourceFiles, quoted, requireConfig } from '../project';
 import { findRefs } from '../refs';
+import { findTypeScript } from '../typescript';
 import { c } from '../ui';
 import type { Flags } from './init';
 
-/** TypeScript from the user's project first (same version as their code), else ours. */
 async function loadTypeScript(root: string): Promise<typeof TS> {
-  try {
-    return createRequire(join(root, 'package.json'))('typescript') as typeof TS;
-  } catch {
-    try {
-      const mod = (await import('typescript')) as typeof TS & { default?: typeof TS };
-      return mod.default ?? mod;
-    } catch {
-      fail('TYPESCRIPT_MISSING', '`splithub ship` rewrites code with the TypeScript compiler, and it is not installed here.', 'Run npm install -D typescript (any 5.x), then retry.');
-    }
-  }
+  const ts = await findTypeScript(root);
+  if (!ts) fail('TYPESCRIPT_MISSING', '`splithub ship` rewrites code with the TypeScript compiler, and it is not installed here.', 'Run npm install -D typescript (any 5.x), then retry.');
+  return ts;
 }
 
 export interface ShipFile {

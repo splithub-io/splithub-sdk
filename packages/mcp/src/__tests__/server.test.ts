@@ -59,6 +59,14 @@ describe('@splithub/mcp', () => {
     }
     const propertyStatus = tools.find((t) => t.name === 'splithub_property_status')!.inputSchema as { properties: { status: { enum: string[] } } };
     expect(propertyStatus.properties.status.enum).toEqual(['running', 'paused', 'archived', 'restored', 'removed']);
+    // App dimensions: breakdowns and filters take platform and app_version wherever they take device.
+    type Schema = { properties: Record<string, { enum?: string[]; propertyNames?: { enum: string[] } }> };
+    const schema = (name: string) => tools.find((t) => t.name === name)!.inputSchema as Schema;
+    for (const name of ['splithub_results', 'splithub_analytics', 'splithub_analytics_funnel']) expect(schema(name).properties.by!.enum).toEqual(expect.arrayContaining(['device', 'platform', 'app_version']));
+    expect(schema('splithub_results').properties.filters!.propertyNames!.enum).toEqual(expect.arrayContaining(['platform', 'app_version']));
+    expect(Object.keys(schema('splithub_analytics_retention').properties)).toEqual(expect.arrayContaining(['property', 'period', 'from', 'to', 'filters']));
+    expect(tools.find((t) => t.name === 'splithub_analytics_retention')!.description).toContain('cohorts[] { start, users, retained[] }');
+    expect(schema('splithub_property_create').properties.kind!.enum).toEqual(['site', 'app']);
   });
 
   it('sets up a project, creates an experiment and reads it back', async () => {

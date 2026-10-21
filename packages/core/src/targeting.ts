@@ -9,8 +9,8 @@
 import { hashToUnit } from './hash';
 import type { Experiment, Flow, FlowNode, TargetCondition, TargetField, TargetOp, TargetingContext, Variant } from './types';
 
-export const TARGET_FIELDS: TargetField[] = ['country', 'region', 'city', 'device', 'browser', 'os', 'language', 'referrer', 'url', 'path', 'query', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'cookie', 'visitor', 'hour', 'weekday'];
-export const TARGET_OPS: TargetOp[] = ['is', 'is_not', 'contains', 'not_contains', 'starts_with', 'in', 'not_in', 'matches', 'exists', 'not_exists'];
+export const TARGET_FIELDS: TargetField[] = ['country', 'region', 'city', 'device', 'browser', 'os', 'language', 'referrer', 'url', 'path', 'query', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'cookie', 'visitor', 'hour', 'weekday', 'platform', 'app_version'];
+export const TARGET_OPS: TargetOp[] = ['is', 'is_not', 'contains', 'not_contains', 'starts_with', 'in', 'not_in', 'matches', 'exists', 'not_exists', 'gte', 'lt'];
 
 /** Fields that take an extra `key` (query param name, cookie name). */
 export const KEYED_FIELDS: TargetField[] = ['query', 'cookie'];
@@ -73,7 +73,11 @@ export function contextValue(field: TargetField, key: string | undefined, ctx: T
     case 'referrer':
     case 'url':
     case 'visitor':
+    case 'platform':
       v = ctx[field];
+      break;
+    case 'app_version':
+      v = ctx.appVersion;
       break;
     case 'language':
       v = ctx.language?.split(',')[0]?.trim().split('-')[0];
@@ -114,6 +118,25 @@ const list = (value: string | undefined): string[] =>
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
 
+/**
+ * Orders two versions: dotted parts compare as numbers when both are digits
+ * (`2.10.0` > `2.9`), otherwise as strings; a missing part counts as 0, so
+ * `2.0` equals `2`. Plain numbers are one-part versions. Native SDKs port this as is.
+ */
+export function compareVersions(a: string, b: string): number {
+  const pa = a.trim().split('.');
+  const pb = b.trim().split('.');
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] ?? '0';
+    const y = pb[i] ?? '0';
+    if (/^\d+$/.test(x) && /^\d+$/.test(y)) {
+      const d = Number(x) - Number(y);
+      if (d !== 0) return d < 0 ? -1 : 1;
+    } else if (x !== y) return x < y ? -1 : 1;
+  }
+  return 0;
+}
+
 export function evaluateCondition(c: TargetCondition, ctx: TargetingContext): boolean {
   const actual = contextValue(c.field, c.key, ctx);
   const expected = (c.value ?? '').trim().toLowerCase();
@@ -136,6 +159,10 @@ export function evaluateCondition(c: TargetCondition, ctx: TargetingContext): bo
       return actual !== undefined && list(c.value).includes(actual);
     case 'not_in':
       return actual === undefined || !list(c.value).includes(actual);
+    case 'gte':
+      return actual !== undefined && actual !== '' && expected !== '' && compareVersions(actual, expected) >= 0;
+    case 'lt':
+      return actual !== undefined && actual !== '' && expected !== '' && compareVersions(actual, expected) < 0;
     case 'matches': {
       if (actual === undefined) return false;
       try {
@@ -307,9 +334,11 @@ export function parseCookies(header: string | null | undefined): Record<string, 
 
 /** Context from the current browser page. Geo fields come from the cloud (`ctx` in the overrides JSON). */
 export function browserContext(extra: Partial<TargetingContext> = {}): TargetingContext {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') return { ...extra };
+  // React Native has `window` and `navigator` but no page: nothing here describes an app.
+  if (typeof window === 'undefined' || typeof navigator === 'undefined' || typeof document === 'undefined' || typeof location === 'undefined') return { ...extra };
   const ua = parseUserAgent(navigator.userAgent);
   return {
+    platform: 'web',
     device: ua.device,
     browser: ua.browser,
     os: ua.os,

@@ -14,12 +14,12 @@ Usage
   splithub                        the menu: experiments, analytics, links, alerts, notes, domains — pick what you need
 
 Experiments
-  splithub init                   set up config, framework files, agent docs
+  splithub init                   set up config, framework files, agent docs (React Native / Expo: installs @splithub/react-native and wraps the app entry; iOS / Android: install lines)
   splithub create                 add an experiment (wizard, or flags for agents); its goal can be any event you track()
   splithub start|pause|finish <id>
   splithub status                 all experiments with a verdict headline
   splithub results <id>           full verdict for one experiment
-                                  a slice: --from --to (first-exposure days) --filter country=DE (country, region, city, device, os, browser,
+                                  a slice: --from --to (first-exposure days) --filter country=DE (country, region, city, device, os, platform, app_version, browser,
                                   language, host, source, channel, utm_*, landing); one view: --by <dimension> (lift per segment),
                                   --timeline (per day), --engagement (bounce, visit length per variant), --events (every goal and event
                                   per variant, lift vs control); --export with --by <dimension> or --events writes CSV
@@ -34,11 +34,11 @@ Experiments
 Analytics
   splithub analytics connect      pick or create a property and name it on the app's provider (or get the sh.js tag); [<id>] [--name "Site"] [--force]
   splithub analytics [<id>]       every property, or one: visitors, pages, sources, events, goals (--by page|source|channel|country|event|goal|variant --experiment <key>|trait --key <name>, --days 7, --from --to, --filter country=DE, --compare [year|<from>..<to>])
-  splithub analytics create --name "Site"   add a property (id generated, like sh-x1h78w; live in the cloud at once, no push); pause|resume|archive|restore|remove|events <id>
+  splithub analytics create --name "Site"   add a property (id generated, like sh-x1h78w; --kind site|app, app by default in an app project; live in the cloud at once, no push); pause|resume|archive|restore|remove|events <id>
   splithub analytics funnel <id> --steps "page:/,event:Signup,goal:paid"   visitors per step, conversion, drop-off (--within visit|7d|30d, --by <dimension>, --funnel <name> runs a saved one)
   splithub analytics funnels <id>  saved funnels: --save <name> --steps "..." [--within 7d] (a saved name updates it), --delete <id|name>
   splithub analytics paths <id> --page /pricing [--prev]   where visitors go next (or came from)
-  splithub analytics retention <id>   who comes back, per weekly cohort (--start visit|event:<name>|goal:<key>, --return visit|event:<name>, --period day|week)
+  splithub analytics retention <id>   who comes back, per cohort (--period day|week, --from --to, --start visit|event:<name>|goal:<key>, --return visit|event:<name>)
   splithub analytics realtime|props|export <id>   visitors now; an event's props (--event <name> [--key <prop>]); CSV to stdout (--by <dimension>|day, --raw)
   splithub analytics segments     saved filters: --save <name> country=DE ..., --delete <id|name>; any report takes --segment <name>
 
@@ -64,7 +64,7 @@ Project
   splithub dev [--url] [--hold]   open the app with ?sh_debug=1 (console + panel: variants, reasons, events) and watch results
   splithub doctor                 check the installation
   splithub update [--yes]         update splithub (and the project's @splithub/* packages) to the latest release; --json only reports
-  splithub skills [--mcp]         install / refresh agent skills (library, A/B testing, analytics, API, MCP, self-hosting, ship the winner, full loop); --mcp registers the MCP server
+  splithub skills [--mcp]         install / refresh agent skills (library, A/B testing, analytics, apps, API, MCP, self-hosting, ship the winner, full loop); --mcp registers the MCP server
   splithub login [--project <name|id>]   connect this directory to a SplitHub Cloud project (sign-in link, no secrets typed)
   splithub projects               every directory connected on this machine and its project
   splithub whoami                 the project this directory is connected to

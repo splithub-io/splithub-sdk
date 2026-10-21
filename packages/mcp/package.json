@@ -1,7 +1,7 @@
 {
   "name": "@splithub/mcp",
-  "version": "0.4.3",
-  "description": "SplitHub as MCP tools for Claude Code, Cursor and Codex: run A/B experiments, read verdicts, and read web analytics, funnels, paths and retention.",
+  "version": "0.5.0",
+  "description": "SplitHub as MCP tools for Claude Code, Cursor and Codex: run A/B experiments on websites and apps, read verdicts, and read analytics, funnels, paths and retention.",
   "keywords": [
     "splithub",
     "ab-testing",
@@ -18,7 +18,13 @@
     "mcp-server",
     "claude-code",
     "cursor",
-    "codex"
+    "codex",
+    "mobile-analytics",
+    "react-native",
+    "expo",
+    "ios",
+    "android",
+    "mobile"
   ],
   "license": "MIT",
   "repository": {
@@ -36,6 +42,9 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "engines": {
+    "node": ">=22"
+  },
   "files": [
     "dist",
     "README.md"

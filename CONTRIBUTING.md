@@ -13,7 +13,8 @@ This repository is a published copy of the SDK. We develop it next to SplitHub C
 
 - Run `pnpm build && pnpm test` and keep both green.
 - Keep `@splithub/core` free of runtime dependencies.
-- Assignment must stay identical in the SDK, the Next middleware and the browser script. If you touch it, add a test for each.
+- Assignment must stay identical in the SDK, the Next middleware, the browser script and the native SDKs. If you touch it, add a test for each.
+- The iOS and Android SDKs in `sdks/` check themselves against the shared vectors from `@splithub/core`: run `swift test` in `sdks/ios` and `./gradlew :splithub-core:test` in `sdks/android` (see their READMEs). The test workflow here covers the npm packages only.
 - User-facing text is warm and plain: one idea per sentence, no more than two sentences.
 
 ## Reporting a security problem

@@ -1,8 +1,10 @@
 import * as p from '@clack/prompts';
 import { execSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { cloudTarget } from '../api';
+import { appPackages, appProviderSnippet, findAppEntry, isNativeApp, isReactNativeApp, nativeSetup, patchAppEntry, screenTracking, type EntryPatch } from '../app-setup';
+import { findTypeScript } from '../typescript';
 import { loadCredential } from '../credentials';
 import { detectProject, installCommand } from '../project';
 import { deviceLogin } from './login';
@@ -28,7 +30,7 @@ function writeIfMissing(file: string, content: string, created: string[], skippe
   created.push(file);
 }
 
-function importPath(fromFile: string, toFile: string): string {
+export function importPath(fromFile: string, toFile: string): string {
   let rel = relative(dirname(fromFile), toFile).replace(/\\/g, '/').replace(/\.(ts|mts|js|mjs)$/, '');
   if (!rel.startsWith('.')) rel = `./${rel}`;
   return rel;
@@ -49,17 +51,23 @@ export async function init(flags: Flags): Promise<void> {
 
   if (!json) p.intro(c.bold('splithub init'));
 
+  // Apps: React Native / Expo get the npm package and a wrapped entry; native iOS / Android get install lines.
+  const rn = isReactNativeApp(project.app);
+  const native = isNativeApp(project.app);
+  const notes: string[] = [];
+
   let mode = str(flags.mode) as 'self' | 'cloud' | undefined;
+  if (native && mode === 'self') {
+    notes.push('Native apps read their experiments from SplitHub Cloud, so this project is set up for the cloud.');
+    mode = 'cloud';
+  }
   if (!mode) {
-    if (yes) mode = 'self';
+    // An app cannot reach a self-hosted endpoint without a server URL, and only the cloud starts experiments without a release.
+    if (yes || native) mode = project.app ? 'cloud' : 'self';
     else {
-      const picked = await p.select({
-        message: 'Where should events be stored?',
-        options: [
-          { value: 'self', label: 'My own database (self-hosted)', hint: 'free forever, nothing leaves your infra' },
-          { value: 'cloud', label: 'SplitHub Cloud', hint: 'hosted dashboard, no server code' },
-        ],
-      });
+      const self = { value: 'self', label: 'My own database (self-hosted)', hint: rn ? 'your server keeps the events; experiments ship with each release' : 'free forever, nothing leaves your infra' };
+      const cloud = { value: 'cloud', label: 'SplitHub Cloud', hint: rn ? 'start and change experiments without a store release' : 'hosted dashboard, no server code' };
+      const picked = await p.select({ message: 'Where should events be stored?', options: rn ? [cloud, self] : [self, cloud] });
       if (p.isCancel(picked)) return cancel();
       mode = picked as 'self' | 'cloud';
     }
@@ -72,7 +80,7 @@ export async function init(flags: Flags): Promise<void> {
   // Self mode: which database keeps the events. sqlite needs nothing; postgres / mysql
   // get a ready Store in splithub/store.ts; custom gets a documented stub.
   let db: DbKind = (DB_KINDS as string[]).includes(str(flags.db) ?? '') ? (str(flags.db) as DbKind) : 'sqlite';
-  if (mode === 'self' && !flags.db && !yes) {
+  if (mode === 'self' && !project.app && !flags.db && !yes) {
     const picked = await p.select({
       message: 'Where should events be stored?',
       options: [
@@ -133,11 +141,28 @@ export async function init(flags: Flags): Promise<void> {
   }
 
   // 1. config
+  // Native apps never read the file (the SDK gets experiments from the cloud), so they get none.
   const configFile = project.configFile ?? join(project.root, 'splithub.config.ts');
-  writeIfMissing(configFile, configTemplate(project.name, mode, key), created, skipped);
+  if (!native) writeIfMissing(configFile, configTemplate(project.name, mode, key, { app: rn }), created, skipped);
 
-  // 2a. store for self mode (postgres / mysql / custom); sqlite needs no file.
-  const storeBody = mode === 'self' ? storeTemplate(db) : null;
+  // 2a. store for self mode (postgres / mysql / custom); sqlite needs no file. An app's events go to a server set up on its own.
+  const storeBody = mode === 'self' && !project.app ? storeTemplate(db) : null;
+  if (rn && mode === 'self') notes.push('Self-hosted: the app sends to storage.endpoint in the config. Point it at your server, and run npx splithub init --mode self there for the ingest route.');
+
+  // 2b. app entry: wrap it in <SplitHubProvider>, with screen tracking.
+  const screens = screenTracking(project);
+  let entry: { file: string | null; patch: EntryPatch } | null = null;
+  if (rn) {
+    const file = findAppEntry(project.root, project.expoRouter);
+    const ts = file ? await findTypeScript(project.root) : null;
+    if (!file) entry = { file: null, patch: { source: null, status: 'manual', screens: false, reason: project.expoRouter ? 'no app/_layout.tsx' : 'no App.tsx' } };
+    else if (!ts) entry = { file, patch: { source: null, status: 'manual', screens: false, reason: 'TypeScript is not installed, so the entry was left as it is' } };
+    else {
+      const patch = patchAppEntry(ts, file, readFileSync(file, 'utf8'), { configImport: importPath(file, configFile), screens });
+      if (patch.source !== null) writeFileSync(file, patch.source, 'utf8');
+      entry = { file, patch };
+    }
+  }
   const storeFile = storeBody ? join(project.root, 'splithub', 'store.ts') : null;
   if (storeFile && storeBody) writeIfMissing(storeFile, storeBody, created, skipped);
 
@@ -170,21 +195,24 @@ export async function init(flags: Flags): Promise<void> {
   }
 
   // 4. dependencies
-  const runtime = ['@splithub/react', '@splithub/core'];
-  if (project.framework === 'next') runtime.push('@splithub/next');
-  if (mode === 'self') runtime.push('@splithub/node', ...runtimePackages(db));
+  const pkgs = rn ? appPackages(project) : null;
+  const runtime = pkgs ? pkgs.runtime : ['@splithub/react', '@splithub/core'];
+  if (project.framework === 'next' && !rn) runtime.push('@splithub/next');
+  if (mode === 'self' && !project.app) runtime.push('@splithub/node', ...runtimePackages(db));
   const installRuntime = installCommand(project.packageManager, runtime);
+  // Expo picks the native module version that matches the app's SDK.
+  const installExpo = pkgs?.expo.length ? `npx expo install ${pkgs.expo.join(' ')}` : null;
   const installDev = installCommand(project.packageManager, ['splithub'], true);
+  const commands = native ? [] : [installRuntime, ...(installExpo ? [installExpo] : []), installDev];
   let installed = false;
-  if (!flags['no-install']) {
-    const go = yes ? true : await p.confirm({ message: `Install packages now? (${installRuntime})` });
+  if (!flags['no-install'] && commands.length) {
+    const go = yes ? true : await p.confirm({ message: `Install packages now? (${commands.slice(0, -1).join(' && ')})` });
     if (p.isCancel(go)) return cancel();
     if (go) {
       const s = json ? null : p.spinner();
       s?.start('Installing');
       try {
-        execSync(installRuntime, { cwd: project.root, stdio: json ? 'ignore' : 'inherit' });
-        execSync(installDev, { cwd: project.root, stdio: json ? 'ignore' : 'inherit' });
+        for (const cmd of commands) execSync(cmd, { cwd: project.root, stdio: json ? 'ignore' : 'inherit' });
         installed = true;
         s?.stop('Installed');
       } catch (error) {
@@ -194,26 +222,58 @@ export async function init(flags: Flags): Promise<void> {
     }
   }
 
-  const providerHint =
-    project.framework === 'next'
+  const entryFile = entry?.file ?? join(project.root, project.expoRouter ? 'app/_layout.tsx' : 'App.tsx');
+  const nativeKit = native ? nativeSetup(project.app as 'ios' | 'android', key ?? null) : null;
+  const providerHint = nativeKit
+    ? `${nativeKit.install}\n\n${nativeKit.quickStart}`
+    : rn
+      ? appProviderSnippet(importPath(entryFile, configFile), screens)
+      : project.framework === 'next'
       ? `// ${project.appDir ?? 'app'}/layout.tsx\nimport { SplitHubNextProvider } from '@splithub/next/client';\nimport { getSplitHub } from '@splithub/next/server';\nimport config from '${importPath(join(project.root, project.appDir ?? 'app', 'layout.tsx'), configFile)}';\n\nexport default async function RootLayout({ children }) {\n  const sh = await getSplitHub(config);\n  return <html><body><SplitHubNextProvider config={config} visitorId={sh.visitorId ?? undefined} remoteOverrides={sh.overrides}>{children}</SplitHubNextProvider></body></html>;\n}`
       : `// main.tsx\nimport { SplitHubProvider } from '@splithub/react';\nimport config from './splithub.config';\n\n<SplitHubProvider config={config}><App /></SplitHubProvider>`;
 
-  const warning = mode === 'cloud' && !key ? 'No public key yet: storage.key falls back to process.env.NEXT_PUBLIC_SPLITHUB_KEY. It is written into the config by the first `npx splithub push`, by `npx splithub login` (saved with the credentials), or pass --key pk_… (dashboard → Setup); SPLITHUB_API_KEY in the environment also resolves it.' : null;
-  const summary = { project: project.name, framework: project.framework, mode, db: mode === 'self' ? db : null, connected, publicKey: key ?? null, warning, created, skipped, installed, installCommands: installed ? [] : [installRuntime, installDev], nextStep: providerHint, ...(project.framework === 'vite' ? { vitePlugin: VITE_PLUGIN_HINT } : {}) };
+  const warning =
+    mode === 'cloud' && !key
+      ? native
+        ? 'No public key yet: run `npx splithub login` (or pass --key pk_…, dashboard → Setup) and put it in SplitHub.start.'
+        : `No public key yet: storage.key falls back to process.env.${rn ? 'EXPO_PUBLIC_SPLITHUB_KEY' : 'NEXT_PUBLIC_SPLITHUB_KEY'}. It is written into the config by the first \`npx splithub push\`, by \`npx splithub login\` (saved with the credentials), or pass --key pk_… (dashboard → Setup); SPLITHUB_API_KEY in the environment also resolves it.`
+      : null;
+  if (rn && entry?.file && entry.patch.status === 'added') created.push(`${entry.file} (wrapped in <SplitHubProvider>${entry.patch.screens && screens ? ', screens tracked' : ''})`);
+  if (rn && entry?.patch.status === 'added' && !entry.patch.screens && screens) notes.push(`Screens: add <NavigationScreens /> inside your <NavigationContainer> (from @splithub/react-native).`);
+  if (rn && !screens) notes.push("Screens: call useScreen('Home') in each screen (from @splithub/react-native).");
+  if (project.app) notes.push('Experiments in splithub.config.ts ship inside the app binary. Create them in the dashboard to start them without a store release.');
+  const app = project.app
+    ? {
+        kind: project.app,
+        screens: rn ? screens ?? 'useScreen' : null,
+        entry: entry ? { file: entry.file ? relative(project.root, entry.file).replace(/\\/g, '/') : null, status: entry.patch.status, screens: entry.patch.screens, ...(entry.patch.reason ? { reason: entry.patch.reason } : {}) } : null,
+        ...(nativeKit ? { install: nativeKit.install, quickStart: nativeKit.quickStart } : {}),
+      }
+    : null;
+  const providerDone = entry?.patch.status === 'added' || entry?.patch.status === 'already';
+  const summary = { project: project.name, framework: project.framework, app, mode, db: mode === 'self' && !project.app ? db : null, connected, publicKey: key ?? null, warning, notes, created, skipped, installed, installCommands: installed ? [] : commands, nextStep: providerDone ? null : providerHint, ...(project.framework === 'vite' && !rn ? { vitePlugin: VITE_PLUGIN_HINT } : {}) };
 
   if (json) {
     console.log(JSON.stringify(summary));
     return;
   }
   if (warning) p.log.warn(warning);
-  if (mode === 'self' && db !== 'sqlite') p.note(db === 'custom' ? 'Fill in the three methods in splithub/store.ts (the comments say what each must return).' : `Set DATABASE_URL and run the SCHEMA_SQL from splithub/store.ts once (or add it to your migrations).`, `Database: ${db}`);
+  for (const note of notes) p.log.info(note);
+  if (mode === 'self' && !project.app && db !== 'sqlite') p.note(db === 'custom' ? 'Fill in the three methods in splithub/store.ts (the comments say what each must return).' : `Set DATABASE_URL and run the SCHEMA_SQL from splithub/store.ts once (or add it to your migrations).`, `Database: ${db}`);
   if (created.length) p.note(created.map((f) => relative(project.root, f) || f).join('\n'), 'Created');
   if (skipped.length) p.note(skipped.map((f) => relative(project.root, f)).join('\n'), 'Already present, left untouched');
-  if (!installed) p.note(`${installRuntime}\n${installDev}`, 'Install');
-  p.note(providerHint, 'Wrap your app once');
-  if (project.framework === 'vite') p.note(VITE_PLUGIN_HINT, 'Notes in your dev terminal');
-  p.outro(`Next: ${c.cyan('npx splithub create')} to add your first experiment, ${c.cyan('npx splithub push')} to sync it, ${c.cyan('npx splithub doctor')} to verify.`);
+  if (!installed && commands.length) p.note(commands.join('\n'), 'Install');
+  if (nativeKit) {
+    p.note(nativeKit.install, project.app === 'ios' ? 'Add the Swift package' : 'Add the Gradle dependency');
+    p.note(nativeKit.quickStart, 'Quick start');
+    p.outro(`Next: create an experiment in the dashboard, then ${c.cyan('npx splithub status')} and ${c.cyan('npx splithub results <id>')} read it here.`);
+    return;
+  }
+  if (rn && entry?.patch.status === 'manual') p.log.warn(`Left ${entry.file ? relative(project.root, entry.file) : 'the entry'} as it is: ${entry.patch.reason}. Add the provider by hand.`);
+  if (!providerDone) p.note(providerHint, 'Wrap your app once');
+  if (project.framework === 'vite' && !rn) p.note(VITE_PLUGIN_HINT, 'Notes in your dev terminal');
+  const analyticsNext = rn ? `, ${c.cyan('npx splithub analytics connect')} for screens and retention` : '';
+  p.outro(`Next: ${c.cyan('npx splithub create')} to add your first experiment, ${c.cyan('npx splithub push')} to sync it${analyticsNext}, ${c.cyan('npx splithub doctor')} to verify.`);
 }
 
 

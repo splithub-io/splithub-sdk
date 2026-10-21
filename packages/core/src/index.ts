@@ -5,15 +5,17 @@ export { resetAnalyticsClaims } from './shared';
 export type { AssignOptions } from './assignment';
 export { murmur3, hashToUnit } from './hash';
 export { newId, newVisitorId, newSessionId } from './ids';
-export { getOrCreateVisitorId, getOrCreateSessionId, hasVisitorId, isBrowser } from './visitor';
-export { runFlow, validateFlow, evaluateCondition, matchConditions, contextValue, browserContext, parseUserAgent, isBot, isCrawler, parseCookies, TARGET_FIELDS, TARGET_OPS, KEYED_FIELDS } from './targeting';
+export { getOrCreateVisitorId, getOrCreateSessionId, hasVisitorId, isBrowser, isReactNative } from './visitor';
+export { runFlow, validateFlow, evaluateCondition, compareVersions, matchConditions, contextValue, browserContext, parseUserAgent, isBot, isCrawler, parseCookies, TARGET_FIELDS, TARGET_OPS, KEYED_FIELDS } from './targeting';
 export { matchPath, normalizePath, redirectTarget, referrerOrigin } from './paths';
 export { decideRedirect } from './redirect';
 export type { RedirectDecision } from './redirect';
 export type { FlowOutcome } from './targeting';
-export { EventQueue, createFetchTransport } from './events';
+export { EventQueue, createFetchTransport, QUEUE_STORAGE_KEY } from './events';
+export { memoryStorage } from './platform';
+export type { PlatformAdapter, KeyValueStorage } from './platform';
 export type { Transport, TransportOptions, EventQueueOptions } from './events';
-export { createClient, SDK_VERSION, CLOUD_ENDPOINT, REMOTE_WAIT_MS } from './client';
+export { createClient, SDK_VERSION, CLOUD_ENDPOINT, REMOTE_WAIT_MS, SESSION_GAP_MS } from './client';
 export type { SplitHubClient, ClientOptions } from './client';
 export {
   applyRemoteOverrides,

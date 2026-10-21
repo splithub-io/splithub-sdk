@@ -1,3 +1,4 @@
+import type { KeyValueStorage } from './platform';
 import type { Experiment, ExperimentStatus, Goal, Holdout, Property, PropertyStatus, SplitHubConfig, TargetingContext } from './types';
 
 /**
@@ -101,15 +102,21 @@ export function isRemoteOverrides(value: unknown): value is RemoteOverrides {
   return Boolean(value) && typeof value === 'object' && typeof (value as RemoteOverrides).version === 'number' && typeof (value as RemoteOverrides).experiments === 'object';
 }
 
-/** `https://go.splithub.io/v1/events` → `https://go.splithub.io/v1/overrides/<pk>.json` */
-export function resolveOverridesUrl(eventsEndpoint: string, publicKey: string): string {
+/**
+ * `https://go.splithub.io/v1/events` → `https://go.splithub.io/v1/overrides/<pk>.json`.
+ * `all` (apps: clients with a platform adapter) also asks for every experiment pushed from
+ * `splithub.config.ts`: an app has no config file to learn them from. Websites never ask for it.
+ */
+export function resolveOverridesUrl(eventsEndpoint: string, publicKey: string, all = false): string {
   const base = eventsEndpoint.replace(/\/events\/?$/, '');
-  return `${base}/overrides/${encodeURIComponent(publicKey)}.json`;
+  return `${base}/overrides/${encodeURIComponent(publicKey)}.json${all ? '?all=1' : ''}`;
 }
 
 // ---------------------------------------------------------------------------
-// Browser cache: overrides are applied synchronously from cache on page load
-// (no flicker) and refreshed in the background for the next load.
+// Cache: overrides are applied synchronously from cache on page load or app launch
+// (no flicker) and refreshed in the background for the next one. Apps pass their
+// adapter's storage; experiments made in the dashboard (`added`) then reach an app
+// without a release, and a launch with no network still has the last copy.
 // ---------------------------------------------------------------------------
 
 interface CacheEntry {
@@ -120,7 +127,8 @@ interface CacheEntry {
 export const REMOTE_CACHE_KEY = 'sh_remote';
 export const REMOTE_TTL_MS = 60_000;
 
-function storage(): Storage | null {
+function storage(custom?: KeyValueStorage | null): KeyValueStorage | null {
+  if (custom) return custom;
   try {
     if (typeof window === 'undefined' || !window.localStorage) return null;
     return window.localStorage;
@@ -129,9 +137,12 @@ function storage(): Storage | null {
   }
 }
 
-export function readRemoteCache(publicKey: string): CacheEntry | null {
+/** The cache key of one public key; `all` answers (apps) live apart, so sh.js and web clients never read them. */
+export const remoteCacheKey = (publicKey: string, all = false): string => `${REMOTE_CACHE_KEY}:${publicKey}${all ? ':all' : ''}`;
+
+export function readRemoteCache(publicKey: string, store?: KeyValueStorage | null, all = false): CacheEntry | null {
   try {
-    const raw = storage()?.getItem(`${REMOTE_CACHE_KEY}:${publicKey}`);
+    const raw = storage(store)?.getItem(remoteCacheKey(publicKey, all));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CacheEntry;
     return isRemoteOverrides(parsed.overrides) && typeof parsed.fetchedAt === 'number' ? parsed : null;
@@ -140,9 +151,9 @@ export function readRemoteCache(publicKey: string): CacheEntry | null {
   }
 }
 
-export function writeRemoteCache(publicKey: string, overrides: RemoteOverrides): void {
+export function writeRemoteCache(publicKey: string, overrides: RemoteOverrides, store?: KeyValueStorage | null, all = false): void {
   try {
-    storage()?.setItem(`${REMOTE_CACHE_KEY}:${publicKey}`, JSON.stringify({ fetchedAt: Date.now(), overrides } satisfies CacheEntry));
+    storage(store)?.setItem(remoteCacheKey(publicKey, all), JSON.stringify({ fetchedAt: Date.now(), overrides } satisfies CacheEntry));
   } catch {
     // storage unavailable
   }

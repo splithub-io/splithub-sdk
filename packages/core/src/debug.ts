@@ -66,12 +66,13 @@ export function debugLog(kind: DebugKind, message: string, data?: Record<string,
     if (data) console.log(`%c[splithub] ${kind}%c ${message}`, STYLE[kind], 'color:inherit', data);
     else console.log(`%c[splithub] ${kind}%c ${message}`, STYLE[kind], 'color:inherit');
   }
-  if (typeof window !== 'undefined' && typeof CustomEvent === 'function') window.dispatchEvent(new CustomEvent('splithub:debug', { detail: entry }));
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent === 'function') window.dispatchEvent(new CustomEvent('splithub:debug', { detail: entry }));
 }
 
 /** Subscribe to debug entries (the devtools panel). Returns an unsubscribe function. */
 export function onDebug(listener: (e: DebugEntry) => void): () => void {
-  if (typeof window === 'undefined') return () => undefined;
+  // React Native has a `window` without events.
+  if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return () => undefined;
   const handler = (ev: Event) => listener((ev as CustomEvent<DebugEntry>).detail);
   window.addEventListener('splithub:debug', handler);
   return () => window.removeEventListener('splithub:debug', handler);

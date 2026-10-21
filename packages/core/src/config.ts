@@ -280,6 +280,7 @@ export function normalizeProperty(key: string, input: PropertyInput, goals: Goal
   if (p.name !== undefined && !(typeof p.name === 'string' && p.name.trim() && p.name.trim().length <= 80)) {
     throw new ConfigError(`property "${key}": name must be text of 1 to 80 characters.`);
   }
+  if (p.kind !== undefined && p.kind !== 'site' && p.kind !== 'app') throw new ConfigError(`property "${key}": kind must be "site" or "app".`);
   const list = p.goals ?? [];
   if (!Array.isArray(list)) throw new ConfigError(`property "${key}": goals must be a list of goal keys.`);
   for (const g of list) {
@@ -291,6 +292,7 @@ export function normalizeProperty(key: string, input: PropertyInput, goals: Goal
     ...(p.name !== undefined ? { name: p.name.trim() } : {}),
     description: p.description ?? null,
     goals: [...new Set(list)],
+    ...(p.kind === 'app' ? { kind: 'app' as const } : {}),
   };
 }
 

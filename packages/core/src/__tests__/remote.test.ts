@@ -76,6 +76,7 @@ describe('helpers', () => {
   it('builds the overrides url from the events endpoint', () => {
     expect(resolveOverridesUrl('https://go.splithub.io/v1/events', 'pk_live_abc')).toBe('https://go.splithub.io/v1/overrides/pk_live_abc.json');
     expect(resolveOverridesUrl('https://staging.example/v1/events/', 'pk')).toBe('https://staging.example/v1/overrides/pk.json');
+    expect(resolveOverridesUrl('https://go.splithub.io/v1/events', 'pk', true)).toBe('https://go.splithub.io/v1/overrides/pk.json?all=1');
   });
   it('validates the shape', () => {
     expect(isRemoteOverrides({ version: 1, experiments: {} })).toBe(true);

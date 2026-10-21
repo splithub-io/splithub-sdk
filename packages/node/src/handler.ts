@@ -5,6 +5,7 @@ import { rawPropertyRange, rawPropertyReport } from './analytics';
 import { ANALYTICS_TYPES, type Store } from './store';
 import { validateBatch } from './validate';
 import { experimentGoals, goalsFromAnalytics } from './derive';
+import { withAppDimensions } from './app';
 
 export interface HandlerOptions {
   config: SplitHubConfig;
@@ -93,8 +94,9 @@ export function createSplitHubHandler(options: HandlerOptions): FetchHandler {
       // Analytics rows of a property that is not declared (or paused) are dropped, as in the cloud.
       const running = new Set((config.properties ?? []).filter((p) => p.status === 'running').map((p) => p.key));
       // Goals come from the event and page rows before that, as in the cloud: experiments count them even when the property is paused.
-      const derived = goalsFromAnalytics(result.events, derivable).map(({ derived: _, ...goal }) => goal);
-      const events = [...result.events.filter((e) => !ANALYTICS_TYPES.has(e.type) || (e.experiment !== null && running.has(e.experiment))), ...derived];
+      const stamped = withAppDimensions(result.events, result.app);
+      const derived = goalsFromAnalytics(stamped, derivable).map(({ derived: _, ...goal }) => goal);
+      const events = [...stamped.filter((e) => !ANALYTICS_TYPES.has(e.type) || (e.experiment !== null && running.has(e.experiment))), ...derived];
       const inserted = events.length ? await store.insertEvents(events) : 0;
       return json(request, { ok: true, received, inserted, ...dropped }, 202);
     }

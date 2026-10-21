@@ -13,3 +13,9 @@ coverage
 .vscode/*
 examples/*/splithub.db*
 examples/*/next-env.d.ts
+# Swift package at the root (sdks/ios) and Gradle (sdks/android)
+.build/
+.swiftpm/
+Package.resolved
+.gradle/
+local.properties

@@ -1,7 +1,7 @@
 {
   "name": "@splithub/adapter-d1",
-  "version": "0.4.3",
-  "description": "Cloudflare D1 store for self-hosted SplitHub experiments and analytics on Workers, with an in-memory D1 for tests.",
+  "version": "0.5.0",
+  "description": "Cloudflare D1 store for self-hosted SplitHub experiments and analytics from websites and apps on Workers, with an in-memory D1 for tests.",
   "keywords": [
     "splithub",
     "ab-testing",

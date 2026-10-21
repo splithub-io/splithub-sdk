@@ -1,7 +1,7 @@
 {
   "name": "splithub",
-  "version": "0.4.3",
-  "description": "Experiments and web analytics for your app in one command: create an A/B test, read a plain verdict, check traffic, funnels and retention. Works for you and for your coding agent.",
+  "version": "0.5.0",
+  "description": "Experiments and analytics for your website or app in one command: create an A/B experiment, read a plain verdict, check traffic, funnels and retention. Sets up React Native, Expo, iOS and Android apps too. Works for you and for your coding agent.",
   "keywords": [
     "splithub",
     "ab-testing",
@@ -19,7 +19,14 @@
     "cursor",
     "conversion-rate-optimization",
     "retention",
-    "feature-experiments"
+    "feature-experiments",
+    "mobile-analytics",
+    "react-native",
+    "expo",
+    "ios",
+    "android",
+    "mobile",
+    "app"
   ],
   "license": "MIT",
   "repository": {
@@ -34,6 +41,9 @@
   "type": "module",
   "bin": {
     "splithub": "./dist/index.js"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "files": [
     "dist",
@@ -52,6 +62,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.0",
+    "esbuild": "^0.27.0",
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",
     "vitest": "^4.1.11"

@@ -29,7 +29,7 @@ import { noteKind } from './notes';
 
 const KEY = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 const SUBCOMMANDS = new Set(['create', 'connect', 'events', 'pause', 'resume', 'archive', 'restore', 'remove', 'funnel', 'funnels', 'paths', 'retention', 'realtime', 'props', 'export', 'segments']);
-export const ANALYTICS_BY = ['source', 'referrer', 'channel', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'country', 'region', 'city', 'device', 'os', 'browser', 'language', 'host', 'entry', 'exit', 'page', 'event', 'goal', 'variant', 'trait'] as const;
+export const ANALYTICS_BY = ['source', 'referrer', 'channel', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'country', 'region', 'city', 'device', 'os', 'browser', 'language', 'host', 'platform', 'app_version', 'entry', 'exit', 'page', 'event', 'goal', 'variant', 'trait'] as const;
 
 interface Sums {
   visitors: number;
@@ -272,7 +272,7 @@ async function rawEvents(key: string, flags: Flags): Promise<void> {
  * A push from a file that lacks experiments the cloud already has would remove them, so adding analytics
  * never asks for one.
  */
-export async function addProperty(key: string, flags: Flags): Promise<{ key: string; status: 'running' | 'paused'; goals: string[]; file: string; cloud: boolean; live: string }> {
+export async function addProperty(key: string, flags: Flags): Promise<{ key: string; status: 'running' | 'paused'; goals: string[]; file: string; cloud: boolean; live: string; kind: 'site' | 'app' }> {
   if (!KEY.test(key)) fail('INVALID_FLAG', `"${key}" is not a valid id: lowercase letters, digits, - and _.`);
   const project = requireConfig();
   const file = relative(project.root, project.configFile);
@@ -280,8 +280,9 @@ export async function addProperty(key: string, flags: Flags): Promise<{ key: str
   const goals = list(flags.goals ?? flags.goal);
   for (const g of goals) if (!before.goals.some((d) => d.key === g)) fail('GOAL_NOT_FOUND', `Goal "${g}" is not declared in ${file}.`, 'Declare it under goals first, or create it with npx splithub create.');
   const status = flags.status === 'paused' ? 'paused' : 'running';
+  const kind = propertyKind(flags, project.app);
   const original = readSource(project.configFile);
-  const updated = insertProperty(original, { key, status, name: str(flags.name), description: str(flags.description), goals });
+  const updated = insertProperty(original, { key, status, name: str(flags.name), description: str(flags.description), goals, kind });
   await writeConfigChecked(project.configFile, original, updated, (config) => (config.properties?.some((p) => p.key === key) ? null : `"${key}" did not appear`));
   const cloud = before.storage.mode === 'cloud';
   let live = 'skipped';
@@ -290,7 +291,7 @@ export async function addProperty(key: string, flags: Flags): Promise<{ key: str
     if (!t.token) live = 'no API key (run npx splithub login or set SPLITHUB_API_KEY to create it in the cloud without a push)';
     else {
       try {
-        await request(t, '/properties', { method: 'POST', body: JSON.stringify({ key, name: str(flags.name) ?? project.name, description: str(flags.description), status, goals }) });
+        await request(t, '/properties', { method: 'POST', body: JSON.stringify({ key, name: str(flags.name) ?? project.name, description: str(flags.description), status, goals, kind }) });
         live = 'applied';
       } catch (error) {
         // The cloud already has this id (made in the dashboard, or an earlier run): it is live as it is.
@@ -298,7 +299,14 @@ export async function addProperty(key: string, flags: Flags): Promise<{ key: str
       }
     }
   }
-  return { key, status, goals, file, cloud, live };
+  return { key, status, goals, file, cloud, live, kind };
+}
+
+/** `--kind site|app`, else what the project is: an app project gets an app property (screens, versions, retention). */
+export function propertyKind(flags: Flags, app: string | null): 'site' | 'app' {
+  const given = str(flags.kind);
+  if (given !== undefined && given !== 'site' && given !== 'app') fail('INVALID_FLAG', `--kind ${given}: use site or app.`);
+  return (given as 'site' | 'app' | undefined) ?? (app ? 'app' : 'site');
 }
 
 /** What to do after a property was added: push only when the cloud could not take it now. */
@@ -314,12 +322,12 @@ export function printLive(cloud: boolean, live: string): void {
 }
 
 async function createProperty(key: string, flags: Flags): Promise<void> {
-  const { status, goals, file, cloud, live } = await addProperty(key, flags);
+  const { status, goals, file, cloud, live, kind } = await addProperty(key, flags);
   const wire = `name the property where events are sent: <SplitHubProvider property="${key}"> or data-property="${key}" on sh.js`;
   const next = cloud
     ? [...afterAdded(cloud, live), wire, 'deploy the app'].join(', then ')
     : `Name the property where events are sent (<SplitHubProvider property="${key}">), then read them with npx splithub analytics ${key}.`;
-  if (flags.json) return printJson({ property: key, status, goals, configFile: file, live, next });
+  if (flags.json) return printJson({ property: key, kind, status, goals, configFile: file, live, next });
   console.log(`${c.green('✔')} analytics property ${c.bold(key)} added to ${c.dim(file)}`);
   printLive(cloud, live);
   console.log(c.dim(`Next: ${next}`));

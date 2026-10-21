@@ -247,22 +247,35 @@ export async function paths(key: string, flags: Flags): Promise<void> {
 
 interface RetentionData {
   range: { from: string; to: string };
+  /** The range was cut to the last 90 days (day) or 26 weeks (week). */
+  clamped?: boolean;
   start: string;
   return: string;
   period: 'day' | 'week';
-  cohorts: Array<{ cohort: string; size: number; returned: number[] }>;
+  /** retained[n]: users of the cohort active in period n (0 = the cohort period). cohort / size / returned are the older names. */
+  cohorts: Array<{ start?: string; users?: number; retained?: number[]; cohort?: string; size?: number; returned?: number[] }>;
+}
+
+/** Rows of the cohort table: start, users, then the share retained in each period. */
+export function retentionRows(data: Pick<RetentionData, 'cohorts'>): { periods: number; rows: string[][] } {
+  const cohorts = data.cohorts.map((r) => ({ start: r.start ?? r.cohort ?? '', users: r.users ?? r.size ?? 0, retained: r.retained ?? r.returned ?? [] }));
+  const periods = Math.max(0, ...cohorts.map((r) => r.retained.length));
+  return { periods, rows: cohorts.map((r) => [r.start, n(r.users), ...Array.from({ length: periods }, (_, i) => (i < r.retained.length ? rate(r.retained[i] ?? 0, r.users) : ''))]) };
 }
 
 export async function retention(key: string, flags: Flags): Promise<void> {
   const t = cloudOnly(flags, 'Retention reports');
-  const extra: Record<string, string> = { start: str(flags.start) ?? 'visit', return: str(flags.return) ?? 'visit', period: str(flags.period) ?? 'week' };
+  const period = str(flags.period) ?? 'week';
+  if (period !== 'day' && period !== 'week') fail('INVALID_FLAG', `--period ${period}: use day or week.`);
+  const extra: Record<string, string> = { start: str(flags.start) ?? 'visit', return: str(flags.return) ?? 'visit', period };
   const data = await request<RetentionData>(t, `/properties/${enc(key)}/retention${reportQuery(flags, extra, await segmentFilters(t, flags, key))}`);
   if (flags.json) return printJson(data);
   head(key, [`retention by ${data.period}`, `start ${data.start}, back with ${data.return}`, span(data.range)]);
+  if (data.clamped) console.log(c.dim(`Cut to the last ${data.period === 'day' ? '90 days' : '26 weeks'}.`));
   if (data.cohorts.length === 0) return void console.log(c.dim('No cohorts in this range.'));
-  const periods = Math.max(0, ...data.cohorts.map((r) => r.returned.length));
+  const { periods, rows } = retentionRows(data);
   const unit = data.period === 'day' ? 'DAY' : 'WEEK';
-  console.log(table(['COHORT', 'VISITORS', ...Array.from({ length: periods }, (_, i) => `${unit} ${i}`)], data.cohorts.map((r) => [r.cohort, n(r.size), ...Array.from({ length: periods }, (_, i) => (i < r.returned.length ? rate(r.returned[i] ?? 0, r.size) : ''))])));
+  console.log(table(['COHORT', 'USERS', ...Array.from({ length: periods }, (_, i) => `${unit} ${i}`)], rows));
 }
 
 // ---------------------------------------------------------------------------

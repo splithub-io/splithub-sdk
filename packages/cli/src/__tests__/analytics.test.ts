@@ -26,6 +26,9 @@ describe('config-file: properties', () => {
     expect(two).toContain(`app: { status: 'paused', name: 'App' },`);
     expect(() => insertProperty(two, { key: 'site' })).toThrow(/already/);
     expect(renderProperty({ key: 'x' })).toBe('x: {}');
+    // site is the default and never written; an app says so.
+    expect(renderProperty({ key: 'x', kind: 'site' })).toBe('x: {}');
+    expect(renderProperty({ key: 'x', kind: 'app', name: 'Shop' })).toBe(`x: { kind: 'app', name: 'Shop' }`);
   });
 
   it('flips status and removes a property', () => {
@@ -211,6 +214,9 @@ describe('splithub analytics (built CLI)', () => {
     expect((await run(dir, ['analytics', 'paths', 'site'])).json).toMatchObject({ code: 'USAGE' });
     expect((await run(dir, ['analytics', 'retention', 'site', '--start', 'event:Signup', '--period', 'day'])).json).toMatchObject({ cohorts: [{ size: 10 }] });
     expect(seen.some((s) => s.includes('/properties/site/retention?') && s.includes('start=event%3ASignup') && s.includes('period=day') && s.includes('return=visit'))).toBe(true);
+    await run(dir, ['analytics', 'retention', 'site', '--from', '2026-09-01', '--to', '2026-09-30', '--filter', 'platform=ios']);
+    expect(seen.some((s) => s.includes('/properties/site/retention?') && s.includes('from=2026-09-01') && s.includes('to=2026-09-30') && s.includes('platform=ios') && s.includes('period=week'))).toBe(true);
+    expect((await run(dir, ['analytics', 'retention', 'site', '--period', 'month'])).json).toMatchObject({ code: 'INVALID_FLAG' });
     expect((await run(dir, ['analytics', 'realtime', 'site'])).json).toMatchObject({ activeVisitors5m: 3 });
     await run(dir, ['analytics', 'props', 'site', '--event', 'Signup', '--key', 'plan']);
     expect(seen.some((s) => s.includes('/properties/site/breakdown?') && s.includes('by=prop') && s.includes('name=Signup') && s.includes('key=plan'))).toBe(true);

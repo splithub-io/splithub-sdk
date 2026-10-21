@@ -6,6 +6,9 @@ assignment is a local hash (no network call on render), one `track()` feeds
 both the analytics reports and your experiments, and events go either to your
 own database or to SplitHub Cloud.
 
+Building a React Native or Expo app? Use `@splithub/react-native`: the same
+components and hooks, with storage, screens and offline events for apps.
+
 ## Install
 
 ```bash
@@ -157,5 +160,6 @@ prop) so the server and the client compute the same variant. `@splithub/next`
 | `useValue(id)` | Payload of a `value` experiment |
 | `useTrack()` | `(name, props?) => void`: an event, any name; converts experiments whose goal it is |
 | `usePageview(path)` | Fire pageview goals on client-side navigation |
+| `useScreen(name)` | Report a screen as a page of the analytics property (apps) |
 | `useIdentify()` | `(userId \| null, traits?) => void`: ties the visitor to your user for analytics |
 | `useSplitHub()` | The underlying `@splithub/core` client |

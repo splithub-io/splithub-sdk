@@ -4,6 +4,8 @@ import { fail } from './errors';
 
 export type Framework = 'next' | 'vite' | 'unknown';
 export type PackageManager = 'pnpm' | 'yarn' | 'bun' | 'npm';
+/** An app instead of a website: React Native (bare or Expo) gets the npm package, native projects get install lines. */
+export type AppKind = 'expo' | 'react-native' | 'ios' | 'android';
 
 export interface ProjectInfo {
   root: string;
@@ -16,6 +18,14 @@ export interface ProjectInfo {
   hasSrc: boolean;
   configFile: string | null;
   typescript: boolean;
+  /** Set when the project is an app (mobile or desktop), null for websites. */
+  app: AppKind | null;
+  /** Expo Router: the entry is `app/_layout.tsx` and screens follow its routes. */
+  expoRouter: boolean;
+  /** React Navigation is installed (screens come from its container). */
+  reactNavigation: boolean;
+  /** Dependencies of package.json (dependencies + devDependencies). */
+  deps: Record<string, string>;
 }
 
 const CONFIG_NAMES = ['splithub.config.ts', 'splithub.config.mts', 'splithub.config.js', 'splithub.config.mjs'];
@@ -45,6 +55,7 @@ export function detectProject(cwd = process.cwd()): ProjectInfo {
     : deps.vite || has('vite.config.ts') || has('vite.config.js') || has('vite.config.mjs')
       ? 'vite'
       : 'unknown';
+  const app = detectApp(root, deps);
   const packageManager: PackageManager = has('pnpm-lock.yaml') ? 'pnpm' : has('yarn.lock') ? 'yarn' : has('bun.lockb') || has('bun.lock') ? 'bun' : 'npm';
   const appDir = has('src/app') ? 'src/app' : has('app') ? 'app' : null;
   return {
@@ -56,7 +67,38 @@ export function detectProject(cwd = process.cwd()): ProjectInfo {
     hasSrc: has('src'),
     configFile: findConfigFile(root),
     typescript: has('tsconfig.json'),
+    app,
+    expoRouter: Boolean(deps['expo-router']),
+    reactNavigation: Boolean(deps['@react-navigation/native']),
+    deps,
   };
+}
+
+/**
+ * React Native / Expo from package.json; otherwise a native project at the root: an Xcode project, a Swift
+ * package or a Podfile (iOS, macOS), or a Gradle build that applies com.android.application. A React Native
+ * app also has ios/ and android/ folders, so the package.json answer comes first.
+ */
+export function detectApp(root: string, deps: Record<string, string>): AppKind | null {
+  if (deps.expo || deps['expo-router']) return 'expo';
+  if (deps['react-native']) return 'react-native';
+  let entries: string[] = [];
+  try {
+    entries = readdirSync(root);
+  } catch {
+    return null;
+  }
+  if (entries.some((e) => e === 'Package.swift' || e === 'Podfile' || e.endsWith('.xcodeproj') || e.endsWith('.xcworkspace'))) return 'ios';
+  const gradle = ['build.gradle', 'build.gradle.kts', 'app/build.gradle', 'app/build.gradle.kts'];
+  for (const g of gradle) {
+    try {
+      // Version catalogs (the Android Studio default) write alias(libs.plugins.android.application).
+      if (/com\.android\.application|plugins\.android\.application/.test(readFileSync(join(root, g), 'utf8'))) return 'android';
+    } catch {
+      // no such file
+    }
+  }
+  return null;
 }
 
 /** The project and its config file; NO_CONFIG when there is none. */

@@ -37,16 +37,20 @@ export type TargetField =
   | 'cookie'
   | 'visitor'
   | 'hour'
-  | 'weekday';
+  | 'weekday'
+  /** `web`, `ios`, `android`, `macos`, `windows`, `linux` (apps report theirs; the browser is `web`). */
+  | 'platform'
+  /** The app's version (`2.4.1`); compare with `gte` / `lt`. Absent on websites. */
+  | 'app_version';
 
-export type TargetOp = 'is' | 'is_not' | 'contains' | 'not_contains' | 'starts_with' | 'in' | 'not_in' | 'matches' | 'exists' | 'not_exists';
+export type TargetOp = 'is' | 'is_not' | 'contains' | 'not_contains' | 'starts_with' | 'in' | 'not_in' | 'matches' | 'exists' | 'not_exists' | 'gte' | 'lt';
 
 export interface TargetCondition {
   field: TargetField;
   op: TargetOp;
   /** Parameter / cookie name for `query` and `cookie`. */
   key?: string;
-  /** Comparison value; comma-separated list for `in` / `not_in`; regex for `matches`. */
+  /** Comparison value; comma-separated list for `in` / `not_in`; regex for `matches`; a version or number for `gte` / `lt` (dotted versions compare part by part). */
   value?: string;
 }
 
@@ -87,7 +91,13 @@ export interface TargetingContext {
    * fills it from the device; on the server it comes from geo headers. Without it, UTC.
    */
   timezone?: string;
+  /** `web` in the browser; an app reports its platform (`ios`, `android` ...). */
+  platform?: AppPlatform;
+  /** The app's version, for `app_version` conditions. */
+  appVersion?: string;
 }
+
+export type AppPlatform = 'web' | 'ios' | 'android' | 'macos' | 'windows' | 'linux';
 
 export interface ExperimentBase {
   status: ExperimentStatus;
@@ -227,7 +237,11 @@ export interface PropertyInput {
   description?: string;
   /** Goal keys from `goals` reported as conversions of this property. Default: every goal of the project. */
   goals?: string[];
+  /** What the property measures: a website (default) or an app (screens instead of pages, versions, retention). */
+  kind?: PropertyKind;
 }
+
+export type PropertyKind = 'site' | 'app';
 
 export type PropertyStatus = 'running' | 'paused';
 
@@ -350,6 +364,8 @@ export interface Property {
   goals: string[];
   /** Where the property was defined: the config file (default) or the cloud dashboard. */
   origin?: 'config' | 'dashboard';
+  /** Default `site`. */
+  kind?: PropertyKind;
 }
 
 export interface SplitHubConfig {
@@ -456,10 +472,31 @@ export interface IdentifyEvent {
 
 export type SplitHubEvent = ExposureEvent | GoalEvent | PageEvent | TrackEvent | EngageEvent | IdentifyEvent;
 
+/**
+ * Who sends a batch from an app (absent from websites). The cloud takes the device, OS and
+ * platform from here instead of the user agent, and `id` stands in for the origin: an allowed
+ * domain list may name the app's bundle id / package name.
+ */
+export interface AppInfo {
+  platform: Exclude<AppPlatform, 'web'>;
+  /** Bundle id / application id (`com.acme.shop`), up to 128 characters. */
+  id?: string;
+  /** Marketing version (`2.4.1`), up to 32 characters. */
+  version?: string;
+  /** Build number (`412`), up to 32 characters. */
+  build?: string;
+  /** OS version (`18.1`), up to 32 characters. */
+  os?: string;
+  /** Device model (`iPhone15,2`, `Pixel 8`), up to 64 characters. */
+  model?: string;
+  device?: 'mobile' | 'tablet' | 'desktop';
+}
+
 export interface EventBatch {
   project: string;
   sdk: string;
   events: SplitHubEvent[];
+  app?: AppInfo;
 }
 
 export interface Assignment {

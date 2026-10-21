@@ -1,10 +1,23 @@
 import { newSessionId, newVisitorId } from './ids';
 import { referrerOrigin } from './paths';
+import { safeGet, safeSet, type KeyValueStorage } from './platform';
 
 const ONE_YEAR = 60 * 60 * 24 * 365;
 
-export const isBrowser = (): boolean =>
-  typeof window !== 'undefined' && typeof document !== 'undefined';
+/** A web page. React Native has a `window` but no page (and `navigator.product` says so). */
+export const isBrowser = (): boolean => typeof window !== 'undefined' && typeof document !== 'undefined' && !isReactNative();
+
+/** React Native (Hermes or JSC): a `window` and a `navigator`, but no page. */
+export const isReactNative = (): boolean => typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
+
+/** An id kept in an app's storage, made on first use. */
+export function getOrCreateStoredId(storage: KeyValueStorage | null | undefined, key: string, make: () => string): string {
+  const existing = safeGet(storage, key);
+  if (existing) return existing;
+  const id = make();
+  safeSet(storage, key, id);
+  return id;
+}
 
 function readCookie(name: string): string | null {
   if (!isBrowser()) return null;

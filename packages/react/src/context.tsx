@@ -1,4 +1,4 @@
-import { createClient, isDebug, isDevEnvironment, type ClientOptions, type SplitHubClient, type SplitHubConfig } from '@splithub/core';
+import { createClient, isDebug, isReactNative, isDevEnvironment, type ClientOptions, type SplitHubClient, type SplitHubConfig } from '@splithub/core';
 import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 // Loaded only when debug mode is on, so the panel is not part of the app's main bundle.
@@ -9,10 +9,14 @@ const SplitHubDevtools = lazy(() => import('./Devtools').then((m) => ({ default:
 const SplitHubContext = createContext<{ client: SplitHubClient; pending: boolean } | null>(null);
 
 export interface SplitHubProviderProps extends ClientOptions {
-  config: SplitHubConfig;
-  /** Pass a prebuilt client (tests, SSR with a request-scoped visitor id). */
+  /** The object from `splithub.config.ts`. Optional when `client` is given. */
+  config?: SplitHubConfig;
+  /**
+   * Pass a prebuilt client (tests, SSR with a request-scoped visitor id, an app's client made with
+   * a `platform` adapter). The provider then never destroys it.
+   */
   client?: SplitHubClient;
-  /** Fire pageview goals on mount. Default true. */
+  /** Fire pageview goals on mount (web; an app reports screens with `useScreen`). Default true. */
   pageviews?: boolean;
   /** Track click goals (`type: 'click'` with a CSS selector) automatically. Default true. */
   autoGoals?: boolean;
@@ -31,13 +35,16 @@ let warnedServer = false;
  */
 export function SplitHubProvider({ config, client: given, pageviews = true, autoGoals = true, devtools = true, children, ...options }: SplitHubProviderProps) {
   const [client] = useState<SplitHubClient>(() => {
-    if (!given && !options.visitorId && typeof window === 'undefined' && isDevEnvironment() && !warnedServer) {
+    if (given) return given;
+    if (!config) throw new Error('[splithub] <SplitHubProvider> needs config={config} (from splithub.config.ts) or a client.');
+    // A server render: no page and no app adapter (React Native has a `window` but is no server).
+    if (!options.visitorId && !options.platform && typeof document === 'undefined' && !isReactNative() && isDevEnvironment() && !warnedServer) {
       warnedServer = true;
       console.warn(
         '[splithub] <SplitHubProvider> rendered on the server without visitorId, so the server renders the control and the browser may hydrate another variant. Pass visitorId from the sh_vid cookie (Next.js: getSplitHub(config).visitorId).'
       );
     }
-    return given ?? createClient(config, options);
+    return createClient(config, options);
   });
   const pending = useSyncExternalStore(client.subscribe, () => client.pending, () => client.pending);
   const value = useMemo(() => ({ client, pending }), [client, pending]);
@@ -47,6 +54,8 @@ export function SplitHubProvider({ config, client: given, pageviews = true, auto
   }, [devtools]);
 
   useEffect(() => {
+    // StrictMode runs this effect twice with a destroy() in between: bind the app lifecycle again.
+    client.resume();
     if (pageviews) client.pageview();
     const unbind = autoGoals ? client.autoGoals() : () => undefined;
     return () => {

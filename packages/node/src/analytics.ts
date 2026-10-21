@@ -111,6 +111,9 @@ export function storedEventFromRow(r: Record<string, unknown>): StoredEvent {
     country: s(r.country),
     device: s(r.device),
     browser: s(r.browser),
+    // Columns added for apps; rows of stores without them keep the old shape.
+    ...('platform' in r ? { platform: s(r.platform) } : {}),
+    ...('app_version' in r ? { app_version: s(r.app_version) } : {}),
   };
 }
 

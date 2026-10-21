@@ -7,6 +7,7 @@
 //   splithub-ship   — keep a variant and take the test out (`splithub ship`)
 //   splithub-loop   — the whole loop for an agent, tool by tool
 //   splithub-analytics — analytics properties: pageviews, events, reports, allowed domains
+//   splithub-apps   — React Native / Expo, iOS and Android: install, screens, versions, retention
 // Same text goes to .cursor/rules and the AGENTS.md section points here.
 
 export interface Skill {
@@ -45,6 +46,8 @@ Events go to the app's own database (self mode) or to SplitHub Cloud (cloud mode
   push / pull, local testing, doctor, agent skills. Everything scriptable: subcommands + \`--json\` (\`npx splithub --help\`).
 - Web analytics (pageviews, events, sources, pages, funnels) live in analytics properties: \`npx splithub analytics connect\`
   sets one up in the app; the \`splithub-analytics\` skill has the rest.
+- Apps (React Native, Expo, iOS, Android): the \`splithub-apps\` skill. The config is built into the binary, so new
+  experiments for an app start in the dashboard; screens are page events; target versions with \`app_version\` \`gte\`.
 
 ## Pick the kind
 
@@ -295,7 +298,7 @@ shows it (\`--json\` adds \`scope\`). Ask the user for a key with that scope; do
 
 ## Live config for clients (public key)
 
-\`GET /v1/overrides/<pk>.json\` → \`{ version, experiments: { <id>: { status?, traffic?, weights?, values? } }, added: [ …hosted experiments… ], goals: [...], ctx: { country, region, city } }\`.
+\`GET /v1/overrides/<pk>.json\` (apps add \`?all=1\`: \`added\` then also carries the pushed experiments) → \`{ version, experiments: { <id>: { status?, traffic?, weights?, values? } }, added: [ …hosted experiments… ], goals: [...], ctx: { country, region, city } }\`.
 Poll it at most once a minute; the SDK caches it in localStorage. \`ctx\` is the visitor's geo for targeting.
 
 ## Project endpoints (API key)
@@ -305,7 +308,7 @@ GET  /v1/status                      every experiment: status, visitors, days, v
 GET  /v1/results/<experiment>        full verdict: sample, comparisons (lift, p-value, CI, P(beat)), srm, winner
                                      ?from=&to= (first-exposure days) &country=DE&channel=…: the verdict on that slice, with scope { filtered, range, filters, note }
 GET  /v1/experiments/<experiment>/timeline           ?from=&to=&<filters>: exposures[] and conversions[] per day and variant, notes
-GET  /v1/experiments/<experiment>/breakdown/<by>     by country|region|city|device|os|browser|language|host|page (= url)|referrer|source|channel|landing|utm_*:
+GET  /v1/experiments/<experiment>/breakdown/<by>     by country|region|city|device|os|platform|app_version|browser|language|host|page (= url)|referrer|source|channel|landing|utm_*:
                                                      order[], segments[] { dim, cells, comparisons { lift, pValue, significant, better }, total, small }
 GET  /v1/experiments/<experiment>/engagement         { property, variants[] { visitors, sessions, pagesPerVisit, bounceRate, avgVisit } } (&property=)
 GET  /v1/experiments/<experiment>/events-summary     { property, variants[], visitors, rows[] { name, goalKey, isGoal, measured, perVariant, comparisons, small } } (&property=)
@@ -326,7 +329,7 @@ GET  /v1/properties/<key>/funnel     ?steps=page:/,event:Signup,goal:paid&within
                                      ?funnel=<id> runs a saved funnel (its steps and within)
 GET|POST /v1/properties/<key>/funnels   { name, steps[], within? }   PATCH|DELETE /v1/properties/<key>/funnels/<id>
 GET  /v1/properties/<key>/paths      ?page=/pricing&direction=next|prev: rows { value, visits }
-GET  /v1/properties/<key>/retention  ?start=visit|event:<n>|goal:<k>&return=visit|event:<n>&period=day|week: cohorts
+GET  /v1/properties/<key>/retention  ?start=visit|event:<n>|goal:<k>&return=visit|event:<n>&period=day|week&from=&to=: { period, cohorts[] { start, users, retained[] } }
 GET  /v1/properties/<key>/realtime | /events?type=page|event | /props?name=&key= | /export.csv?by=|day (&raw=1)
 GET|POST /v1/segments    { name, filters, propertyKey? }   PATCH|DELETE /v1/segments/<id>
 GET  /v1/domains                     every allowed domain and where it applies, observed origins
@@ -445,6 +448,8 @@ export { SKILL_LOOP, SKILL_SHIP } from './skills-ship';
 import { SKILL_LOOP, SKILL_SHIP } from './skills-ship';
 export { SKILL_ANALYTICS } from './skills-analytics';
 import { SKILL_ANALYTICS } from './skills-analytics';
+export { SKILL_APPS } from './skills-apps';
+import { SKILL_APPS } from './skills-apps';
 
 export const SKILLS: Skill[] = [
   { dir: 'splithub', body: SKILL_SPLITHUB },
@@ -455,6 +460,7 @@ export const SKILLS: Skill[] = [
   { dir: 'splithub-ship', body: SKILL_SHIP },
   { dir: 'splithub-loop', body: SKILL_LOOP },
   { dir: 'splithub-analytics', body: SKILL_ANALYTICS },
+  { dir: 'splithub-apps', body: SKILL_APPS },
 ];
 
 export const MCP_SERVER_ENTRY = { command: 'npx', args: ['-y', '@splithub/mcp'] };

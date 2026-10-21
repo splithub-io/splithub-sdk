@@ -32,7 +32,7 @@ jobs:
             echo
             echo "| Package | npm |"
             echo "|---|---|"
-            for name in splithub @splithub/mcp @splithub/core @splithub/react @splithub/next @splithub/browser @splithub/node @splithub/adapter-sqlite @splithub/adapter-d1; do
+            for name in splithub @splithub/mcp @splithub/core @splithub/react @splithub/react-native @splithub/next @splithub/browser @splithub/node @splithub/adapter-sqlite @splithub/adapter-d1; do
               echo "| \`$name\` | [$version](https://www.npmjs.com/package/$name/v/$version) |"
             done
           } > notes.md

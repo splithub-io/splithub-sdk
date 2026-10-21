@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { assign } from '../assignment';
 import { defineConfig } from '../config';
-import { contextValue, evaluateCondition, parseUserAgent, runFlow, validateFlow } from '../targeting';
+import { compareVersions, contextValue, evaluateCondition, parseUserAgent, runFlow, validateFlow } from '../targeting';
 import type { Flow, TargetingContext } from '../types';
 
 const flow: Flow = {
@@ -54,6 +54,36 @@ describe('conditions', () => {
     expect(evaluateCondition({ field: 'device', op: 'exists' }, ctx)).toBe(false);
     expect(evaluateCondition({ field: 'device', op: 'not_exists' }, ctx)).toBe(true);
     expect(evaluateCondition({ field: 'device', op: 'is_not', value: 'mobile' }, ctx)).toBe(true); // unknown ≠ mobile
+  });
+
+  it('reads the platform and the app version', () => {
+    const app: TargetingContext = { platform: 'ios', appVersion: '2.10.0' };
+    expect(contextValue('platform', undefined, app)).toBe('ios');
+    expect(contextValue('app_version', undefined, app)).toBe('2.10.0');
+    expect(evaluateCondition({ field: 'platform', op: 'in', value: 'ios, android' }, app)).toBe(true);
+    expect(evaluateCondition({ field: 'platform', op: 'is', value: 'web' }, app)).toBe(false);
+    expect(evaluateCondition({ field: 'app_version', op: 'gte', value: '2.9' }, app)).toBe(true);
+    expect(evaluateCondition({ field: 'app_version', op: 'lt', value: '2.9' }, app)).toBe(false);
+    expect(evaluateCondition({ field: 'app_version', op: 'lt', value: '3' }, app)).toBe(true);
+    expect(evaluateCondition({ field: 'app_version', op: 'gte', value: '2.10' }, app)).toBe(true); // missing parts are 0
+    // No version (a website): neither side of a comparison matches.
+    expect(evaluateCondition({ field: 'app_version', op: 'gte', value: '1' }, {})).toBe(false);
+    expect(evaluateCondition({ field: 'app_version', op: 'lt', value: '1' }, {})).toBe(false);
+    expect(evaluateCondition({ field: 'hour', op: 'gte', value: '9' }, { now: Date.UTC(2026, 9, 12, 15) })).toBe(true);
+  });
+
+  it('compares versions part by part', () => {
+    expect(compareVersions('2.10.0', '2.9')).toBe(1);
+    expect(compareVersions('2.0', '2')).toBe(0);
+    expect(compareVersions('1.2.3', '1.2.4')).toBe(-1);
+    expect(compareVersions('10', '9')).toBe(1);
+    expect(compareVersions('007', '7')).toBe(0);
+    expect(compareVersions('1.0.0-beta', '1.0.0-alpha')).toBe(1); // non-numeric parts compare as text
+  });
+
+  it('accepts the new fields and operators in a flow', () => {
+    const f: Flow = { start: 'a', nodes: { a: { type: 'condition', conditions: [{ field: 'platform', op: 'is', value: 'android' }, { field: 'app_version', op: 'lt', value: '3.1' }], then: 'v' }, v: { type: 'variant', variant: 'control' } } };
+    expect(validateFlow(f, ['control'])).toBeNull();
   });
 });
 

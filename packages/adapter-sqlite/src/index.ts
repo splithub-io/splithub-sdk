@@ -49,21 +49,23 @@ export function sqliteStore(options: SqliteStoreOptions = {}): Store {
       host TEXT,
       country TEXT,
       device TEXT,
-      browser TEXT
+      browser TEXT,
+      platform TEXT,
+      app_version TEXT
     );
     CREATE INDEX IF NOT EXISTS ${table}_exp ON ${table} (type, experiment, visitor_id, ts);
     CREATE INDEX IF NOT EXISTS ${table}_goal ON ${table} (type, goal, visitor_id, ts);
   `);
 
-  // Older self-hosted databases predate the metadata columns.
+  // Older self-hosted databases predate the metadata columns (and the app ones: platform, app_version).
   const existing = new Set((db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((c) => c.name));
-  for (const col of ['host', 'country', 'device', 'browser']) {
+  for (const col of ['host', 'country', 'device', 'browser', 'platform', 'app_version']) {
     if (!existing.has(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} TEXT`);
   }
 
   const insert = db.prepare(
-    `INSERT OR IGNORE INTO ${table} (id, type, experiment, variant, goal, visitor_id, session_id, ts, url, props, received_at, host, country, device, browser)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT OR IGNORE INTO ${table} (id, type, experiment, variant, goal, visitor_id, session_id, ts, url, props, received_at, host, country, device, browser, platform, app_version)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
 
   // The shared attribution rule from @splithub/node (first exposure, skew, daily goal cap).
@@ -90,7 +92,7 @@ export function sqliteStore(options: SqliteStoreOptions = {}): Store {
       db.exec('BEGIN');
       try {
         for (const e of events) {
-          const r = insert.run(e.id, e.type, e.experiment, e.variant, e.goal, e.visitorId, e.sessionId, e.ts, e.url, e.props ? JSON.stringify(e.props) : null, e.receivedAt, e.host ?? null, e.country ?? null, e.device ?? null, e.browser ?? null);
+          const r = insert.run(e.id, e.type, e.experiment, e.variant, e.goal, e.visitorId, e.sessionId, e.ts, e.url, e.props ? JSON.stringify(e.props) : null, e.receivedAt, e.host ?? null, e.country ?? null, e.device ?? null, e.browser ?? null, e.platform ?? null, e.app_version ?? null);
           n += Number(r.changes);
         }
         db.exec('COMMIT');

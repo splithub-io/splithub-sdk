@@ -1,4 +1,4 @@
-import { debugMode, holdoutGroup, layerBucket, onDebug, type DebugEntry, type SplitHubClient } from '@splithub/core';
+import { debugMode, holdoutGroup, isReactNative, layerBucket, onDebug, type DebugEntry, type SplitHubClient } from '@splithub/core';
 import { useEffect, useState } from 'react';
 
 /**
@@ -9,6 +9,12 @@ import { useEffect, useState } from 'react';
  * without the flag.
  */
 export function SplitHubDevtools({ client }: { client: SplitHubClient }) {
+  // A DOM panel: nothing to show in React Native or on the server.
+  if (typeof document === 'undefined' || isReactNative()) return null;
+  return <Panel client={client} />;
+}
+
+function Panel({ client }: { client: SplitHubClient }) {
   const [open, setOpen] = useState(true);
   const [log, setLog] = useState<DebugEntry[]>([]);
   const [tick, setTick] = useState(0);

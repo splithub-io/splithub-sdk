@@ -1,7 +1,7 @@
 {
   "name": "splithub-sdk",
   "private": true,
-  "description": "SplitHub SDK: agent-first A/B testing for web apps",
+  "description": "SplitHub SDK: agent-first A/B testing and analytics for websites and apps",
   "license": "MIT",
   "engines": {
     "node": ">=22.13.0",

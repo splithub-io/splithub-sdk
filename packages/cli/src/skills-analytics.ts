@@ -51,7 +51,7 @@ There are no variants and no verdicts: reports are counts.
   dashboard under Alerts) covers properties too: visitors, top sources and pages, goals and events against the period before.
 - \`npx splithub analytics site --json\` (\`--days 7\`, or \`--from 2026-10-01 --to 2026-10-31\`): totals, \`users\` (identified),
   goals (conversions = unique visitors who reached the goal in the range, completions, revenue), top pages, top sources, notes.
-- \`--by page|source|channel|referrer|utm_source|utm_medium|utm_campaign|country|device|browser|os|entry|exit|event|goal\`; with a
+- \`--by page|source|channel|referrer|utm_source|utm_medium|utm_campaign|country|device|browser|os|platform|app_version|entry|exit|event|goal\`; with a
   visit dimension, \`--goal signup\` adds conversions per row; \`--by variant --experiment hero\` splits visits by the
   variant each visitor saw, \`--by trait --key plan\` by an identify() trait. \`--filter country=DE,FR --filter source="(none)"\` narrows any report.
 - \`npx splithub analytics events site --json\`: the latest raw pageviews and events, to check tracking right after wiring it.
@@ -63,7 +63,7 @@ There are no variants and no verdicts: reports are counts.
     removes one, and \`analytics funnel site --funnel Signup\` runs it. Save a funnel the user will want to read again.
   - \`analytics paths site --page /pricing [--prev]\`: where visits went next (or came from).
   - \`analytics retention site [--start visit|event:<name>|goal:<key>] [--return visit|event:<name>] [--period day|week]\`: cohorts
-    and how many came back per period.
+    \`{ start, users, retained[] }\`, \`retained[0]\` = the cohort period itself; up to 90 days or 26 weeks (\`clamped\`).
   - \`analytics realtime site\`: visitors in the last 5 minutes, top pages and sources.
   - \`analytics props site --event Signup [--key plan]\`: an event's prop names, or one prop's values.
   - \`analytics export site --by page|day [--raw] > report.csv\`: CSV to stdout.
@@ -90,6 +90,8 @@ There are no variants and no verdicts: reports are counts.
 - Allowed domains are per experiment and per property: \`npx splithub domains set property site example.com\` (subdomains included),
   \`npx splithub domains clear property site\` (any domain again), \`npx splithub domains\` lists them all. An empty list
   accepts every origin. Add localhost too when testing from it.
+- Apps: \`kind: 'app'\` on a property (\`analytics create --kind app\`, the default in an app project) shows screens, versions and
+  retention in the dashboard; screens are page events (the \`splithub-apps\` skill).
 - Billing: every pageview and custom event counts like one exposure against the project's allowance.
 
 ## Do not

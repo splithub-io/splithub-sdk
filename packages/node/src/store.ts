@@ -39,6 +39,10 @@ export interface StoredEvent {
   utm_campaign?: string | null;
   utm_term?: string | null;
   utm_content?: string | null;
+  /** `web` for website batches, else the app's platform (`ios`, `android`, `macos`, `windows`, `linux`). */
+  platform?: string | null;
+  /** The app's version (`2.4.1`); null on websites. */
+  app_version?: string | null;
 }
 
 export interface ExperimentSummary {

@@ -78,6 +78,17 @@ export function usePageview(path: string): void {
 }
 
 /**
+ * Apps: report the screen on show (`useScreen('Settings')`, or a route path like `'/product/[id]'`) as a page of
+ * the analytics property, once per name. On the web it sends a page with that url.
+ */
+export function useScreen(name: string): void {
+  const client = useSplitHub();
+  useEffect(() => {
+    client.screen(name);
+  }, [client, name]);
+}
+
+/**
  * `identify('user_42', { plan: 'pro' })`: ties this visitor to your user id for the analytics
  * property. Remembered in the browser and re-sent once per session; `identify(null)` on sign-out.
  */

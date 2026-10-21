@@ -1,9 +1,17 @@
-export function configTemplate(project: string, mode: 'self' | 'cloud', key?: string): string {
-  const storage = mode === 'self' ? `{ mode: 'self', endpoint: '/api/splithub' }` : `{ mode: 'cloud', key: ${key ? `'${key}'` : "process.env.NEXT_PUBLIC_SPLITHUB_KEY ?? ''"} }`;
+export function configTemplate(project: string, mode: 'self' | 'cloud', key?: string, options: { app?: boolean } = {}): string {
+  // An app has no origin of its own: self-hosted events go to the server's full URL, and Expo inlines EXPO_PUBLIC_* variables.
+  const endpoint = options.app ? "process.env.EXPO_PUBLIC_SPLITHUB_ENDPOINT ?? 'https://example.com/api/splithub'" : "'/api/splithub'";
+  const envKey = options.app ? 'EXPO_PUBLIC_SPLITHUB_KEY' : 'NEXT_PUBLIC_SPLITHUB_KEY';
+  const storage = mode === 'self' ? `{ mode: 'self', endpoint: ${endpoint} }` : `{ mode: 'cloud', key: ${key ? `'${key}'` : `process.env.${envKey} ?? ''`} }`;
+  const appNote = options.app
+    ? `
+// In an app this file is built into the binary: a new experiment here reaches users with the next
+// store release. Create experiments in the dashboard to start them without a release.`
+    : '';
   return `import { defineConfig } from '@splithub/core';
 
 // SplitHub experiments. This file is the source of truth: the SDK, the CLI
-// and the dashboard all read it. Keys: lowercase a-z 0-9 - _. First variant = control.
+// and the dashboard all read it. Keys: lowercase a-z 0-9 - _. First variant = control.${appNote}
 export default defineConfig({
   project: '${project}',
   storage: ${storage},
@@ -100,6 +108,8 @@ This project uses SplitHub (\`@splithub/react\`). Experiments are declared in
   Details: .claude/skills/splithub-analytics/SKILL.md
 - Notes, alerts, links, domains (SplitHub Cloud): \`npx splithub notes add "<what shipped>"\` when you ship, \`npx splithub alerts\` (rules, e.g.
   \`alerts add usage --every 1000\`), \`npx splithub links\` (short links), \`npx splithub domains\`. Humans: \`npx splithub\` opens the menu.
+- Apps (React Native / Expo / iOS / Android): new experiments start in the dashboard (the config is built into the binary);
+  screens are page events. Details: .claude/skills/splithub-apps/SKILL.md
 - Config ships to the browser: no secrets in it. Full rules: .claude/skills/splithub/SKILL.md
 `;
 

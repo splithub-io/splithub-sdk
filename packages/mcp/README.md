@@ -1,9 +1,9 @@
 # @splithub/mcp
 
 MCP server for SplitHub. Lets Claude Code, Cursor, Codex or any MCP client run experiments
-(create, start, pause, finish, read verdicts, ship the winner) and read web analytics (traffic,
-sources, funnels, paths, retention, realtime) through tools, with the same config file and
-credentials as the `splithub` CLI.
+(create, start, pause, finish, read verdicts, ship the winner) and read analytics (traffic,
+sources, funnels, paths, retention, realtime) through tools, on websites and in apps (React
+Native, Expo, iOS, Android), with the same config file and credentials as the `splithub` CLI.
 
 ```bash
 npx splithub skills --mcp      # writes .mcp.json (Claude Code) and .cursor/mcp.json (Cursor)
@@ -23,6 +23,16 @@ Tools:
 | Analytics | `splithub_analytics`, `splithub_analytics_connect`, `splithub_analytics_events`, `splithub_analytics_funnel`, `splithub_analytics_funnels` (saved funnels), `splithub_analytics_paths`, `splithub_analytics_retention`, `splithub_analytics_realtime`, `splithub_segments`, `splithub_property_create`, `splithub_property_status` |
 | Around them | `splithub_notes`, `splithub_links`, `splithub_alerts`, `splithub_domains` |
 | Project | `splithub_init`, `splithub_push`, `splithub_pull`, `splithub_doctor`, `splithub_login`, `splithub_whoami`, `splithub_projects` |
+
+Apps:
+
+- `splithub_init` knows React Native and Expo: it installs `@splithub/react-native` and wraps the app entry
+  with screen tracking. In a native iOS or Android project it returns the install lines and a quick start.
+- `splithub_doctor` checks the app package and its storage module (or the native SDK in the build files).
+- `splithub_property_create` takes `kind: site | app` (app by default in an app project).
+- Experiment results, breakdowns and every analytics report take `platform` (`ios`, `android`, `web`…)
+  and `app_version` as a filter or a `by` dimension.
+- `splithub_analytics_retention` gives daily or weekly cohorts: who comes back after the first open.
 
 The old names `splithub_create_experiment`, `splithub_set_status`, `splithub_create_property` and
 `splithub_set_property_status` still work for one release.

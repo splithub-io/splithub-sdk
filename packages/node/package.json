@@ -1,7 +1,7 @@
 {
   "name": "@splithub/node",
-  "version": "0.4.3",
-  "description": "Run SplitHub on your own server: one handler for events, raw experiment results and analytics counts, your database behind a small Store interface.",
+  "version": "0.5.0",
+  "description": "Run SplitHub on your own server: one handler for events from websites and apps, raw experiment results and analytics counts, your database behind a small Store interface.",
   "keywords": [
     "splithub",
     "ab-testing",
@@ -15,7 +15,10 @@
     "self-hosted",
     "server",
     "nodejs",
-    "store"
+    "store",
+    "mobile-analytics",
+    "react-native",
+    "mobile"
   ],
   "license": "MIT",
   "repository": {
@@ -37,6 +40,9 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     }
+  },
+  "engines": {
+    "node": ">=22"
   },
   "files": [
     "dist",

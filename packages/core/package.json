@@ -1,7 +1,7 @@
 {
   "name": "@splithub/core",
-  "version": "0.4.3",
-  "description": "The heart of SplitHub: the config, who sees which variant, and the event queue for experiments and analytics. No framework, no dependencies.",
+  "version": "0.5.0",
+  "description": "The heart of SplitHub: the config, who sees which variant, and the event queue for experiments and analytics, on websites and in apps (screens, offline queue, app targeting). No framework, no dependencies.",
   "keywords": [
     "splithub",
     "ab-testing",
@@ -15,7 +15,14 @@
     "feature-flags",
     "assignment",
     "murmurhash",
-    "zero-dependencies"
+    "zero-dependencies",
+    "mobile-analytics",
+    "react-native",
+    "expo",
+    "ios",
+    "android",
+    "mobile",
+    "app"
   ],
   "license": "MIT",
   "repository": {
@@ -52,7 +59,8 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "vectors": "tsup && node scripts/vectors.mjs"
   },
   "devDependencies": {
     "tsup": "^8.3.5",
