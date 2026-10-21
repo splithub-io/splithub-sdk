@@ -1,7 +1,25 @@
 {
   "name": "@splithub/react",
-  "version": "0.4.2",
-  "description": "A/B testing in React: show a variant, track a goal, no flicker, nothing fetched on render.",
+  "version": "0.4.3",
+  "description": "A/B testing and web analytics in React: show a variant, track any event, identify users. No flicker, nothing fetched on render.",
+  "keywords": [
+    "splithub",
+    "ab-testing",
+    "a-b-testing",
+    "experiments",
+    "split-testing",
+    "analytics",
+    "web-analytics",
+    "product-analytics",
+    "funnels",
+    "mcp",
+    "ai-agents",
+    "react",
+    "hooks",
+    "react-hooks",
+    "tracking",
+    "event-tracking"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",

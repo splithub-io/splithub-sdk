@@ -2,6 +2,10 @@
 
 Every package in this repository is released together under one version.
 
+## 0.4.3
+
+- READMEs and npm descriptions cover what SplitHub does today: web analytics (pageviews, events, sources, funnels, paths, retention, segments), the analytics commands and MCP tools, notes, short links and alerts. `@splithub/browser` gets its own README. No code changes.
+
 ## 0.4.2
 
 ### CLI (`npx splithub`)

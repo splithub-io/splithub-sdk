@@ -1,7 +1,22 @@
 {
   "name": "@splithub/core",
-  "version": "0.4.2",
-  "description": "The heart of SplitHub: the config, who sees which variant, and the event queue. No framework, no dependencies.",
+  "version": "0.4.3",
+  "description": "The heart of SplitHub: the config, who sees which variant, and the event queue for experiments and analytics. No framework, no dependencies.",
+  "keywords": [
+    "splithub",
+    "ab-testing",
+    "a-b-testing",
+    "experiments",
+    "split-testing",
+    "analytics",
+    "web-analytics",
+    "product-analytics",
+    "ai-agents",
+    "feature-flags",
+    "assignment",
+    "murmurhash",
+    "zero-dependencies"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",

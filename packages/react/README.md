@@ -1,9 +1,10 @@
 # @splithub/react
 
-A/B testing for React apps, built for teams that ship with coding agents.
-Variants are decided before the first paint (no flicker), assignment is a
-local hash (no network call on render), and events go either to your own
-database or to SplitHub Cloud.
+Experiments and web analytics for React apps, built for teams that ship with
+coding agents. Variants are decided before the first paint (no flicker),
+assignment is a local hash (no network call on render), one `track()` feeds
+both the analytics reports and your experiments, and events go either to your
+own database or to SplitHub Cloud.
 
 ## Install
 
@@ -85,6 +86,23 @@ const track = useTrack();
 Pageview goals fire automatically on mount. In SPAs call `usePageview(pathname)`
 on route change.
 
+## Analytics
+
+Name an analytics property on the provider and every page and `track()` call
+is counted too: traffic, sources, pages, events, goals, funnels, paths and
+retention in SplitHub Cloud. `npx splithub analytics connect` creates the
+property and writes its id here.
+
+```tsx
+<SplitHubProvider config={config} property="sh-x1h78w">
+  <App />
+</SplitHubProvider>
+
+// Client-side navigations count as pageviews on their own.
+const identify = useIdentify();
+identify('user_42', { plan: 'pro' });   // ties visits to your user; identify(null) on sign-out
+```
+
 ## 4. Store events
 
 **Self-hosted (your database):** mount the handler from `@splithub/node` in
@@ -133,10 +151,11 @@ prop) so the server and the client compute the same variant. `@splithub/next`
 
 | Export | What it does |
 |---|---|
-| `SplitHubProvider` | Creates the client synchronously; props: `config`, `visitorId?`, `overrides?`, `client?`, `pageviews?` |
+| `SplitHubProvider` | Creates the client synchronously; props: `config`, `property?`, `visitorId?`, `overrides?`, `client?`, `pageviews?` |
 | `Experiment` / `Variant` | Render one `<Variant>` by assignment; records an exposure on mount |
 | `useVariant(id)` | Variant key, control when not running |
 | `useValue(id)` | Payload of a `value` experiment |
 | `useTrack()` | `(name, props?) => void`: an event, any name; converts experiments whose goal it is |
 | `usePageview(path)` | Fire pageview goals on client-side navigation |
+| `useIdentify()` | `(userId \| null, traits?) => void`: ties the visitor to your user for analytics |
 | `useSplitHub()` | The underlying `@splithub/core` client |

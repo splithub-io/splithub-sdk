@@ -1,7 +1,21 @@
 {
   "name": "@splithub/adapter-sqlite",
-  "version": "0.4.2",
-  "description": "SQLite store for self-hosted SplitHub, on the SQLite built into Node. Nothing to compile.",
+  "version": "0.4.3",
+  "description": "SQLite store for self-hosted SplitHub experiments and analytics, on the SQLite built into Node. Nothing to compile.",
+  "keywords": [
+    "splithub",
+    "ab-testing",
+    "a-b-testing",
+    "experiments",
+    "split-testing",
+    "analytics",
+    "web-analytics",
+    "product-analytics",
+    "sqlite",
+    "node-sqlite",
+    "self-hosted",
+    "store"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",

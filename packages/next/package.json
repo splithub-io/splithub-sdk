@@ -1,7 +1,26 @@
 {
   "name": "@splithub/next",
-  "version": "0.4.2",
-  "description": "SplitHub for Next.js: middleware, server components, redirect tests and the route for your own database.",
+  "version": "0.4.3",
+  "description": "SplitHub for Next.js: experiments and analytics with middleware, server components, redirect experiments and the route for your own database.",
+  "keywords": [
+    "splithub",
+    "ab-testing",
+    "a-b-testing",
+    "experiments",
+    "split-testing",
+    "analytics",
+    "web-analytics",
+    "product-analytics",
+    "funnels",
+    "mcp",
+    "ai-agents",
+    "nextjs",
+    "next",
+    "react",
+    "middleware",
+    "app-router",
+    "server-components"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",

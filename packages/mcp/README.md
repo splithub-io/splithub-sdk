@@ -1,8 +1,9 @@
 # @splithub/mcp
 
-MCP server for SplitHub. Lets Claude Code, Cursor, Codex or any MCP client create
-experiments, read verdicts, start/pause/finish experiments and push config — through tools,
-with the same config file and credentials as the `splithub` CLI.
+MCP server for SplitHub. Lets Claude Code, Cursor, Codex or any MCP client run experiments
+(create, start, pause, finish, read verdicts, ship the winner) and read web analytics (traffic,
+sources, funnels, paths, retention, realtime) through tools, with the same config file and
+credentials as the `splithub` CLI.
 
 ```bash
 npx splithub skills --mcp      # writes .mcp.json (Claude Code) and .cursor/mcp.json (Cursor)
@@ -14,12 +15,17 @@ claude mcp add splithub -- npx -y @splithub/mcp
 { "mcpServers": { "splithub": { "command": "npx", "args": ["-y", "@splithub/mcp"] } } }
 ```
 
-Tools: `splithub_status`, `splithub_results`, `splithub_plan`, `splithub_experiment_create`, `splithub_experiment_status`,
-`splithub_refs`, `splithub_ship`, `splithub_remove`, `splithub_review`, `splithub_push`, `splithub_pull`,
-`splithub_doctor`, `splithub_login`, `splithub_whoami`, `splithub_projects`, `splithub_init`, and the analytics tools
-(`splithub_analytics*`, `splithub_property_create`, `splithub_property_status`). The old names
-`splithub_create_experiment`, `splithub_set_status`, `splithub_create_property` and `splithub_set_property_status`
-still work for one release.
+Tools:
+
+| Area | Tools |
+|---|---|
+| Experiments | `splithub_status`, `splithub_results`, `splithub_experiment_events`, `splithub_plan`, `splithub_experiment_create`, `splithub_experiment_status`, `splithub_refs`, `splithub_ship`, `splithub_remove`, `splithub_review` |
+| Analytics | `splithub_analytics`, `splithub_analytics_connect`, `splithub_analytics_events`, `splithub_analytics_funnel`, `splithub_analytics_funnels` (saved funnels), `splithub_analytics_paths`, `splithub_analytics_retention`, `splithub_analytics_realtime`, `splithub_segments`, `splithub_property_create`, `splithub_property_status` |
+| Around them | `splithub_notes`, `splithub_links`, `splithub_alerts`, `splithub_domains` |
+| Project | `splithub_init`, `splithub_push`, `splithub_pull`, `splithub_doctor`, `splithub_login`, `splithub_whoami`, `splithub_projects` |
+
+The old names `splithub_create_experiment`, `splithub_set_status`, `splithub_create_property` and
+`splithub_set_property_status` still work for one release.
 
 With SplitHub Cloud, results carry the verdict (`verdict.message`), a friendly line (`voice.line`)
 and ready-to-show text (`display`). Self-hosted projects get raw numbers only

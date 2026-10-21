@@ -1,7 +1,22 @@
 {
   "name": "@splithub/node",
-  "version": "0.4.2",
-  "description": "Run SplitHub on your own server: one handler for events and results, your database behind a small Store interface.",
+  "version": "0.4.3",
+  "description": "Run SplitHub on your own server: one handler for events, raw experiment results and analytics counts, your database behind a small Store interface.",
+  "keywords": [
+    "splithub",
+    "ab-testing",
+    "a-b-testing",
+    "experiments",
+    "split-testing",
+    "analytics",
+    "web-analytics",
+    "product-analytics",
+    "ai-agents",
+    "self-hosted",
+    "server",
+    "nodejs",
+    "store"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",

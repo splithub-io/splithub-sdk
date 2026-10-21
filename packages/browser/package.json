@@ -1,7 +1,26 @@
 {
   "name": "@splithub/browser",
-  "version": "0.4.2",
-  "description": "SplitHub for sites without a build step: one script tag runs redirect tests and counts goals.",
+  "version": "0.4.3",
+  "description": "SplitHub for sites without a build step: one script tag counts pages and events and runs redirect experiments.",
+  "keywords": [
+    "splithub",
+    "ab-testing",
+    "a-b-testing",
+    "experiments",
+    "split-testing",
+    "analytics",
+    "web-analytics",
+    "product-analytics",
+    "funnels",
+    "mcp",
+    "ai-agents",
+    "script-tag",
+    "pageviews",
+    "event-tracking",
+    "redirect-test",
+    "no-code",
+    "privacy"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",

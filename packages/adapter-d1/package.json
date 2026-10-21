@@ -1,7 +1,23 @@
 {
   "name": "@splithub/adapter-d1",
-  "version": "0.4.2",
-  "description": "Cloudflare D1 store for self-hosted SplitHub on Workers, with an in-memory D1 for tests.",
+  "version": "0.4.3",
+  "description": "Cloudflare D1 store for self-hosted SplitHub experiments and analytics on Workers, with an in-memory D1 for tests.",
+  "keywords": [
+    "splithub",
+    "ab-testing",
+    "a-b-testing",
+    "experiments",
+    "split-testing",
+    "analytics",
+    "web-analytics",
+    "product-analytics",
+    "cloudflare",
+    "cloudflare-d1",
+    "d1",
+    "workers",
+    "self-hosted",
+    "store"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",

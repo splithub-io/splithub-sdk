@@ -1,7 +1,25 @@
 {
   "name": "@splithub/mcp",
-  "version": "0.4.2",
-  "description": "SplitHub as MCP tools for Claude Code, Cursor and Codex: create tests, start and finish them, read verdicts.",
+  "version": "0.4.3",
+  "description": "SplitHub as MCP tools for Claude Code, Cursor and Codex: run A/B experiments, read verdicts, and read web analytics, funnels, paths and retention.",
+  "keywords": [
+    "splithub",
+    "ab-testing",
+    "a-b-testing",
+    "experiments",
+    "split-testing",
+    "analytics",
+    "web-analytics",
+    "product-analytics",
+    "funnels",
+    "mcp",
+    "ai-agents",
+    "model-context-protocol",
+    "mcp-server",
+    "claude-code",
+    "cursor",
+    "codex"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
