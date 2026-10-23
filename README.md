@@ -10,6 +10,7 @@
   <a href="https://www.npmjs.com/package/splithub"><img src="https://img.shields.io/npm/v/splithub?label=splithub" alt="npm"></a>
   <a href="https://github.com/splithub-io/splithub-sdk/actions/workflows/test.yml"><img src="https://github.com/splithub-io/splithub-sdk/actions/workflows/test.yml/badge.svg" alt="tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+  <a href="https://glama.ai/mcp/servers/splithub-io/splithub-sdk"><img src="https://glama.ai/mcp/servers/splithub-io/splithub-sdk/badges/score.svg" alt="splithub-io/splithub-sdk MCP server"></a>
 </p>
 
 <p align="center">
