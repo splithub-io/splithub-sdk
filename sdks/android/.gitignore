@@ -8,3 +8,8 @@ local.properties
 gradlew
 gradlew.bat
 gradle/wrapper/gradle-wrapper.jar
+# VS Code Java / Eclipse build output
+bin/
+.project
+.classpath
+.settings/
