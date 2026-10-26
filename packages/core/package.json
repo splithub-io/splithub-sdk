@@ -1,6 +1,6 @@
 {
   "name": "@splithub/core",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "The heart of SplitHub: the config, who sees which variant, and the event queue for experiments and analytics, on websites and in apps (screens, offline queue, app targeting). No framework, no dependencies.",
   "keywords": [
     "splithub",

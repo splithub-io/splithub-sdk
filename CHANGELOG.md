@@ -2,6 +2,23 @@
 
 Every package in this repository is released together under one version.
 
+## 0.5.1
+
+Security fixes. Update when you can; nothing in your code needs to change.
+
+### CLI (`npx splithub`)
+
+- **`splithub pull` and `push` keep cloud data as data.** Names, values and numbers from the cloud are escaped or checked before they are written into `splithub.config.ts`, so an experiment edited by someone else in your project can no longer put code into the file.
+- **`splithub push` says when analytics properties were left alone.** A key without `analytics:write` now pushes experiments only, and the CLI prints a warning instead of changing properties.
+
+### MCP (`@splithub/mcp`)
+
+- **Tool arguments stay arguments.** A value that looks like an option (`--api`, `--url=…`) is refused instead of being passed to the CLI, so a tool call can no longer send your API key to another server.
+
+### Self-hosted (`@splithub/node`)
+
+- **The ingest body is capped at 1 MiB** (`MAX_BODY_BYTES`) before it is read, in the fetch handler and in `toNodeListener`. A larger body gets 413, and the Node adapter closes the connection.
+
 ## 0.5.0
 
 SplitHub now works in apps, next to websites. The same experiments, the same `track()` and the same reports, for React Native, Expo, iOS and Android.

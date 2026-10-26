@@ -54,7 +54,31 @@ export function errorBody(json: unknown): CliErrorBody | null {
   return j && typeof j.error === 'string' && typeof j.code === 'string' ? (j as CliErrorBody) : null;
 }
 
+/**
+ * Flags the tools pass to the CLI. Tool values come from the model, so a value
+ * like `--api=https://elsewhere` would otherwise be parsed as an option and send
+ * the credential to another host. Anything starting with `-` must be one of these,
+ * written alone (the tools never use `--flag=value`).
+ */
+export const TOOL_FLAGS = new Set([
+  'baseline', 'before', 'by', 'compare', 'conversions', 'cooldown', 'count', 'day', 'days', 'delete', 'description', 'disabled',
+  'drop-loser', 'dry-run', 'end', 'engagement', 'event', 'events', 'every', 'experiment', 'factor', 'filter', 'finish', 'force',
+  'from', 'funnel', 'github-action', 'goal', 'goals', 'good-sample', 'guardrail', 'hours', 'id', 'keep', 'key', 'kind', 'layer',
+  'lift', 'limit', 'match', 'max-visitors', 'mde', 'min-days', 'min-visitors', 'mode', 'name', 'no-install', 'no-login', 'page',
+  'pause', 'percent', 'period', 'prev', 'property', 'prune', 'repeat', 'replace', 'return', 'same', 'save', 'secondary', 'segment',
+  'slug', 'start', 'status', 'steps', 'timeline', 'to', 'traffic', 'type', 'value', 'variants', 'visitors', 'weights', 'within', 'yes',
+].map((f) => `--${f}`));
+
+export function unsafeArg(args: string[]): string | null {
+  return args.find((a) => a.startsWith('-') && !TOOL_FLAGS.has(a)) ?? null;
+}
+
 export function runCli(args: string[], options: { timeoutMs?: number } = {}): Promise<CliResult> {
+  const bad = unsafeArg(args);
+  if (bad !== null) {
+    const json: CliErrorBody = { error: `"${bad.slice(0, 80)}" is not a value the tool can pass on: values cannot start with "-".`, code: 'INVALID_ARGUMENT', hint: 'Use the id, host or text without a leading dash.' };
+    return Promise.resolve({ code: 1, stdout: JSON.stringify(json), stderr: '', json });
+  }
   const extra: string[] = [];
   if (process.env.SPLITHUB_API) extra.push('--api', process.env.SPLITHUB_API);
   return new Promise((resolve) => {

@@ -1,4 +1,4 @@
-export { createSplitHubHandler } from './handler';
+export { createSplitHubHandler, MAX_BODY_BYTES } from './handler';
 export type { HandlerOptions, FetchHandler } from './handler';
 export { toNodeListener } from './nodeAdapter';
 export { createMemoryStore, countProperty, ANALYTICS_TYPES } from './store';

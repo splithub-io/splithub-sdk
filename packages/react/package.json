@@ -1,6 +1,6 @@
 {
   "name": "@splithub/react",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "A/B testing and web analytics in React: show a variant, track any event, identify users. No flicker, nothing fetched on render. For React Native and Expo, see @splithub/react-native.",
   "keywords": [
     "splithub",

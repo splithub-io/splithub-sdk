@@ -1,6 +1,6 @@
 {
   "name": "@splithub/adapter-sqlite",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "SQLite store for self-hosted SplitHub experiments and analytics from websites and apps, on the SQLite built into Node. Nothing to compile.",
   "keywords": [
     "splithub",

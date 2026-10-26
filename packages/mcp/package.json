@@ -1,6 +1,6 @@
 {
   "name": "@splithub/mcp",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "SplitHub as MCP tools for Claude Code, Cursor and Codex: run A/B experiments on websites and apps, read verdicts, and read analytics, funnels, paths and retention.",
   "keywords": [
     "splithub",

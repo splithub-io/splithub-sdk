@@ -1,6 +1,6 @@
 {
   "name": "@splithub/react-native",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "A/B testing and analytics for React Native and Expo apps on iOS and Android: show a variant, track screens and events, works offline.",
   "keywords": [
     "splithub",

@@ -165,7 +165,7 @@ import { SplitHubProvider, ExpoRouterScreens, Experiment, Variant, useTrack } fr
 iOS (Swift package, iOS 14+):
 
 ```swift
-.package(url: "https://github.com/splithub-io/splithub-sdk", from: "0.5.0")
+.package(url: "https://github.com/splithub-io/splithub-sdk", from: "0.5.1")
 
 SplitHub.start(publicKey: "pk_...", property: "sh-x1h78w")
 let button = SplitHub.variant("checkout-button")
@@ -175,7 +175,7 @@ SplitHub.track("Purchase", props: ["revenue": 29])
 Android (Kotlin, min SDK 21):
 
 ```kotlin
-implementation("io.splithub:splithub:0.5.0")
+implementation("io.splithub:splithub:0.5.1")
 
 SplitHub.start(this, "pk_...", property = "sh-x1h78w")
 val cta = SplitHub.variant("hero-cta")

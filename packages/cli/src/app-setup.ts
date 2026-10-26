@@ -194,7 +194,7 @@ export function patchAppEntry(ts: typeof TS, file: string, src: string, opts: { 
 export const IOS_PACKAGE_URL = 'https://github.com/splithub-io/splithub-sdk';
 export const ANDROID_ARTIFACT = 'io.splithub:splithub';
 export const ANDROID_COMPOSE_ARTIFACT = 'io.splithub:splithub-compose';
-export const NATIVE_SDK_VERSION = '0.5.0';
+export const NATIVE_SDK_VERSION = '0.5.1';
 
 export function nativeSetup(app: 'ios' | 'android', publicKey: string | null, property: string | null = null): { install: string; quickStart: string } {
   const key = publicKey ?? 'pk_…';

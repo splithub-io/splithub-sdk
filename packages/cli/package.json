@@ -1,6 +1,6 @@
 {
   "name": "splithub",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Experiments and analytics for your website or app in one command: create an A/B experiment, read a plain verdict, check traffic, funnels and retention. Sets up React Native, Expo, iOS and Android apps too. Works for you and for your coding agent.",
   "keywords": [
     "splithub",

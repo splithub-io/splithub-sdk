@@ -37,6 +37,9 @@ interface PushResponse {
   cloudOnly?: CloudExperiment[];
   /** Experiments from an earlier push that the file lacks, left in the cloud as they are; `--prune` removes them. */
   kept?: string[];
+  /** The file's analytics properties were not applied: the key or member lacks analytics:write. */
+  propertiesSkipped?: boolean;
+  hint?: string;
 }
 
 /** Write dashboard-created experiments into the local config file. Returns the keys written. */
@@ -177,7 +180,8 @@ export async function push(flags: Flags): Promise<void> {
 
   // Write the public key into the config when it is missing.
   let keyWritten = false;
-  if (body.publicKey && !config.storage.key) {
+  // The key goes into a file that is executed; anything but a plain pk_ key stays out.
+  if (body.publicKey && /^pk_[A-Za-z0-9_]+$/.test(body.publicKey) && !config.storage.key) {
     const source = readSource(project.configFile);
     const updated = source.replace(/(mode\s*:\s*['"]cloud['"]\s*)(,?)(\s*\})/, (_m, a: string, _comma: string, b: string) => `${a}, key: '${body.publicKey}'${b}`);
     if (updated !== source) {
@@ -194,6 +198,7 @@ export async function push(flags: Flags): Promise<void> {
   }
   console.log(`${c.green('✔')} pushed ${c.bold(String(body.project))} v${body.version} · ${body.experiments} experiment(s) → ${target.url}`);
   if (body.kept?.length) console.log(c.yellow(`! kept in the cloud, not in ${out.configFile}: ${body.kept.join(', ')}. They go on as they are; npx splithub push --prune removes them.`));
+  if (body.propertiesSkipped) console.log(c.yellow(`! ${body.hint ?? 'Analytics properties were left as they are: changing them needs analytics:write.'}`));
   if (adopted.length) console.log(`${c.green('✔')} written into ${out.configFile} from the dashboard: ${adopted.join(', ')} (wire them in code if they are value/component experiments)`);
   if (body.publicKey) {
     console.log(keyWritten ? `${c.green('✔')} public key written to ${out.configFile}` : `${c.dim('public key:')} ${body.publicKey}`);

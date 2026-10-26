@@ -92,3 +92,32 @@ describe('targeting flow in the config file', () => {
     expect(JSON.parse(out.slice(out.indexOf('flow: ') + 6, out.lastIndexOf(',')))).toEqual(flow);
   });
 });
+
+describe('cloud values written into the config file', () => {
+  // The config file is executed: a non-number from the cloud must never become code.
+  const evil = '0, pwned: (globalThis.__SH_PWNED = 1, 0)' as unknown as number;
+  it('writes numeric fields only when they are real numbers', () => {
+    const out = renderExperiment({
+      key: 'promo',
+      kind: 'component',
+      status: 'draft',
+      variants: [{ key: 'control', weight: evil }, { key: 'b', weight: 1 }],
+      traffic: evil,
+      maxExposures: evil,
+      minDays: evil,
+      goodSample: evil,
+      layer: { key: 'l', range: [evil, 50] },
+    });
+    expect(out).not.toContain('pwned');
+    expect(out).not.toMatch(/traffic|maxExposures|minDays|goodSample|layer/);
+    expect(out).toContain('variants: { control: 1, b: 1 }');
+  });
+  it('still writes numbers that are numbers', () => {
+    const out = renderExperiment({ key: 'n', kind: 'component', status: 'draft', variants: [{ key: 'control', weight: 1 }, { key: 'b', weight: 1 }], traffic: 0.5, maxExposures: 1000, minDays: 0, goodSample: 5000, layer: { key: 'l', range: [0, 50] } });
+    for (const line of ['traffic: 0.5,', 'maxExposures: 1000,', 'minDays: 0,', 'goodSample: 5000,', "layer: { key: 'l', range: [0, 50] },"]) expect(out).toContain(line);
+  });
+  it('keeps line breaks inside string literals escaped', () => {
+    const out = renderExperiment({ key: 'd', kind: 'component', status: 'draft', variants: [{ key: 'control', weight: 1 }], description: "a\r\nb'" });
+    expect(out).toContain("description: 'a\\r\\nb\\'',");
+  });
+});

@@ -315,7 +315,12 @@ export interface NewExperiment {
 
 /** Single-quoted string literal. */
 function q(s: string): string {
-  return `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'`;
+  return `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r')}'`;
+}
+
+/** A number literal, or nothing. Values come from the cloud and the file is executed, so never raw text. */
+function num(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
 }
 
 /** Object key: bare when it is a valid identifier, quoted otherwise. */
@@ -338,20 +343,24 @@ export function renderExperiment(e: NewExperiment, indent = '    '): string {
     }
     lines.push(`${i2}},`);
   } else if (e.kind === 'component') {
-    lines.push(`${i2}variants: { ${e.variants.map((v) => `${k(v.key)}: ${v.weight}`).join(', ')} },`);
+    lines.push(`${i2}variants: { ${e.variants.map((v) => `${k(v.key)}: ${num(v.weight) ?? 1}`).join(', ')} },`);
   } else {
     lines.push(`${i2}variants: {`);
     for (const v of e.variants) {
       const extra = e.kind === 'value' ? `value: ${q(v.value ?? '')}` : `to: ${q(v.to ?? '/')}`;
-      lines.push(`${i3}${k(v.key)}: { weight: ${v.weight}, ${extra} },`);
+      lines.push(`${i3}${k(v.key)}: { weight: ${num(v.weight) ?? 1}, ${extra} },`);
     }
     lines.push(`${i2}},`);
   }
   if (e.goal) lines.push(`${i2}goal: ${q(e.goal)},`);
-  if (e.traffic !== undefined && e.traffic !== 1) lines.push(`${i2}traffic: ${e.traffic},`);
-  if (e.maxExposures) lines.push(`${i2}maxExposures: ${e.maxExposures},`);
-  if (e.minDays !== undefined) lines.push(`${i2}minDays: ${e.minDays},`);
-  if (e.goodSample !== undefined) lines.push(`${i2}goodSample: ${e.goodSample},`);
+  const traffic = num(e.traffic);
+  const maxExposures = num(e.maxExposures);
+  const minDays = num(e.minDays);
+  const goodSample = num(e.goodSample);
+  if (traffic !== undefined && traffic !== 1) lines.push(`${i2}traffic: ${traffic},`);
+  if (maxExposures) lines.push(`${i2}maxExposures: ${maxExposures},`);
+  if (minDays !== undefined) lines.push(`${i2}minDays: ${minDays},`);
+  if (goodSample !== undefined) lines.push(`${i2}goodSample: ${goodSample},`);
   if (e.schedule && (e.schedule.startAt || e.schedule.endAt)) lines.push(`${i2}schedule: { ${[e.schedule.startAt ? `startAt: ${q(e.schedule.startAt)}` : null, e.schedule.endAt ? `endAt: ${q(e.schedule.endAt)}` : null].filter(Boolean).join(', ')} },`);
   if (e.metrics && (e.metrics.secondary?.length || e.metrics.guardrails?.length)) {
     const parts: string[] = [];
@@ -359,7 +368,7 @@ export function renderExperiment(e: NewExperiment, indent = '    '): string {
     if (e.metrics.guardrails?.length) parts.push(`guardrails: [${e.metrics.guardrails.map((g) => (typeof g === 'string' ? q(g) : `{ goal: ${q(g.goal)}, worse: ${q(g.worse)} }`)).join(', ')}]`);
     lines.push(`${i2}metrics: { ${parts.join(', ')} },`);
   }
-  if (e.layer) lines.push(`${i2}layer: { key: ${q(e.layer.key)}, range: [${e.layer.range[0]}, ${e.layer.range[1]}] },`);
+  if (e.layer && num(e.layer.range[0]) !== undefined && num(e.layer.range[1]) !== undefined) lines.push(`${i2}layer: { key: ${q(e.layer.key)}, range: [${e.layer.range[0]}, ${e.layer.range[1]}] },`);
   if (e.name) lines.push(`${i2}name: ${q(e.name)},`);
   if (e.description) lines.push(`${i2}description: ${q(e.description)},`);
   if (e.flow) {

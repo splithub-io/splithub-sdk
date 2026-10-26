@@ -30,6 +30,38 @@ const visitorUserAgent = (request: Request): string | null =>
 export type FetchHandler = (request: Request) => Promise<Response>;
 
 /**
+ * Largest ingest body accepted. The POST is public, so the cap applies before anything is
+ * buffered; a full batch (500 events) is far smaller, and SplitHub Cloud takes 256 KiB.
+ */
+export const MAX_BODY_BYTES = 1024 * 1024;
+
+/** The body as text, or null when it is (or turns out to be) larger than `max`. */
+async function readCapped(request: Request, max: number): Promise<string | null> {
+  if (Number(request.headers.get('content-length') ?? 0) > max) return null;
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) {
+    all.set(c, at);
+    at += c.byteLength;
+  }
+  return new TextDecoder().decode(all);
+}
+
+/**
  * One handler for ingest and results, mountable at any path:
  *
  *   POST {base}                → ingest an event batch
@@ -79,9 +111,11 @@ export function createSplitHubHandler(options: HandlerOptions): FetchHandler {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
 
     if (request.method === 'POST') {
+      const text = await readCapped(request, MAX_BODY_BYTES);
+      if (text === null) return json(request, { error: `body larger than ${MAX_BODY_BYTES} bytes` }, 413);
       let body: unknown;
       try {
-        body = await request.json();
+        body = JSON.parse(text);
       } catch {
         return json(request, { error: 'invalid JSON' }, 400);
       }
