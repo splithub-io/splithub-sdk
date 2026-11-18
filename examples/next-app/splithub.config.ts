@@ -1,6 +1,6 @@
 import { defineConfig } from '@splithub/core';
 
-// sh2 experiments. This file is the source of truth: the SDK, the CLI
+// SplitHub experiments. This file is the source of truth: the SDK, the CLI
 // and the dashboard all read it. Keys: lowercase a-z 0-9 - _. First variant = control.
 export default defineConfig({
   project: 'example-next-app',

@@ -176,7 +176,7 @@ while rendering; the app uses the copy it saved on the last launch.
 ## Debug builds send nothing
 
 Like `vite` or `next dev` on the web, a development build (`NODE_ENV=development`, every Metro debug bundle) sends
-nothing to sh2 Cloud, so your own taps never count as visitors. Variants still render, and
+nothing to SplitHub Cloud, so your own taps never count as visitors. Variants still render, and
 assignment works the same. To see events arrive, run a release build:
 
 ```bash

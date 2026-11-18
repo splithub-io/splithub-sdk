@@ -58,7 +58,7 @@ export async function init(flags: Flags): Promise<void> {
 
   let mode = str(flags.mode) as 'self' | 'cloud' | undefined;
   if (native && mode === 'self') {
-    notes.push('Native apps read their experiments from sh2 Cloud, so this project is set up for the cloud.');
+    notes.push('Native apps read their experiments from SplitHub Cloud, so this project is set up for the cloud.');
     mode = 'cloud';
   }
   if (!mode) {
@@ -66,7 +66,7 @@ export async function init(flags: Flags): Promise<void> {
     if (yes || native) mode = project.app ? 'cloud' : 'self';
     else {
       const self = { value: 'self', label: 'My own database (self-hosted)', hint: rn ? 'your server keeps the events; experiments ship with each release' : 'free forever, nothing leaves your infra' };
-      const cloud = { value: 'cloud', label: 'sh2 Cloud', hint: rn ? 'start and change experiments without a store release' : 'hosted dashboard, no server code' };
+      const cloud = { value: 'cloud', label: 'SplitHub Cloud', hint: rn ? 'start and change experiments without a store release' : 'hosted dashboard, no server code' };
       const picked = await p.select({ message: 'Where should events be stored?', options: rn ? [cloud, self] : [self, cloud] });
       if (p.isCancel(picked)) return cancel();
       mode = picked as 'self' | 'cloud';
@@ -103,7 +103,7 @@ export async function init(flags: Flags): Promise<void> {
       key ??= saved.publicKey ?? undefined;
       connected = { projectName: saved.projectName, projectId: saved.projectId };
     } else if (!process.env.SPLITHUB_API_KEY && !flags['no-login']) {
-      if (!json) p.log.step('Connect to sh2 Cloud');
+      if (!json) p.log.step('Connect to SplitHub Cloud');
       try {
         const cred = await deviceLogin({
           api,
@@ -180,7 +180,7 @@ export async function init(flags: Flags): Promise<void> {
   //    well, the API and the MCP tools from .claude/skills/*; Cursor gets the rule file.
   let mcp = !flags['no-mcp'];
   if (!yes && !json && mcp) {
-    const want = await p.confirm({ message: 'Register the sh2 MCP server for Claude Code / Cursor (.mcp.json, .cursor/mcp.json)?', initialValue: true });
+    const want = await p.confirm({ message: 'Register the SplitHub MCP server for Claude Code / Cursor (.mcp.json, .cursor/mcp.json)?', initialValue: true });
     if (p.isCancel(want)) return cancel();
     mcp = want;
   }

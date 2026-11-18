@@ -4,7 +4,7 @@ Thanks for helping. A few things to know first.
 
 ## How this repository works
 
-This repository is a published copy of the SDK. We develop it next to sh2 Cloud and copy it here with every release. That means:
+This repository is a published copy of the SDK. We develop it next to SplitHub Cloud and copy it here with every release. That means:
 
 - We review your pull request here, then apply it on our side and credit you in the commit. Your PR is closed when the release that contains it lands.
 - Commit history here is one commit per release.

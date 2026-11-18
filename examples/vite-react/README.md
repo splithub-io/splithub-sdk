@@ -1,4 +1,4 @@
-# sh2 example: Vite + React, self-hosted
+# SplitHub example: Vite + React, self-hosted
 
 End-to-end demo with zero external services: the ingest handler runs inside
 the Vite dev server and writes to `./splithub.db`.

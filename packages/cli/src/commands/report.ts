@@ -1,6 +1,6 @@
 // `splithub report`: status and verdicts as Markdown, for a PR or issue comment
 // (the GitHub workflow from `ci init` posts it) or anywhere Markdown renders.
-// sh2 Cloud writes the report; a self-hosted endpoint gets a raw-numbers table built here.
+// SplitHub Cloud writes the report; a self-hosted endpoint gets a raw-numbers table built here.
 import { fetchReport, fetchResults, fetchStatus, isRawResults, resolveTarget, type RawResults, type StatusData, type Target } from '../api';
 import { printJson } from '../errors';
 import { detectProject } from '../project';
@@ -10,9 +10,9 @@ import type { Flags } from './init';
 const cell = (s: string) => s.replace(/\|/g, '\\|').replace(/\n/g, ' ');
 const title = (id: string) => (id === '__holdout' ? 'Holdout: long-term impact' : `\`${cell(id)}\``);
 
-/** Raw numbers only: no verdicts, which come with sh2 Cloud. */
+/** Raw numbers only: no verdicts, which come with SplitHub Cloud. */
 export function rawReportMarkdown(data: StatusData, details: RawResults[]): string {
-  const out: string[] = [`### sh2 · ${cell(data.project)}`, ''];
+  const out: string[] = [`### SplitHub · ${cell(data.project)}`, ''];
   if (data.experiments.length === 0) {
     out.push('No experiments yet. Run `npx splithub create` in your app.');
     return out.join('\n');
@@ -26,7 +26,7 @@ export function rawReportMarkdown(data: StatusData, details: RawResults[]): stri
     d.variants.forEach((v, i) => out.push(`| ${cell(v.variant)}${i === 0 ? ' (control)' : ''} | ${v.visitors} | ${v.conversions} | ${pct(v.rate)} |${revenue ? ` ${v.revenue === undefined ? '–' : v.revenue.toFixed(2)} |` : ''}`));
   }
   const analysis = data.analysis ?? details[0]?.analysis;
-  if (analysis) out.push('', `_${analysis.message} [sh2 Cloud](${analysis.url})_`);
+  if (analysis) out.push('', `_${analysis.message} [SplitHub Cloud](${analysis.url})_`);
   return out.join('\n');
 }
 

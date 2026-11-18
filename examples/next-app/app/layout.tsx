@@ -3,7 +3,7 @@ import { getSplitHub } from '@splithub/next/server';
 import type { ReactNode } from 'react';
 import config from '../splithub.config';
 
-export const metadata = { title: 'sh2 Next example' };
+export const metadata = { title: 'SplitHub Next example' };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   // The middleware sets the sh_vid cookie; passing it (and any live overrides) down keeps SSR and hydration in sync.

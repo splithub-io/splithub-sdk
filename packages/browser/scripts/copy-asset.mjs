@@ -1,4 +1,4 @@
-// Copies the self-running build into the worker so sh2 Cloud serves it at /sh.js.
+// Copies the self-running build into the worker so SplitHub Cloud serves it at /sh.js.
 import { copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';

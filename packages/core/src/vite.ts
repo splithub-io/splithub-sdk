@@ -1,4 +1,4 @@
-// Vite plugin: sh2 notes in the terminal that runs `vite` / `npm run dev`.
+// Vite plugin: SplitHub notes in the terminal that runs `vite` / `npm run dev`.
 //
 //   // vite.config.ts
 //   import { splithub } from '@splithub/core/vite';

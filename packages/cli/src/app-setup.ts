@@ -194,14 +194,14 @@ export function patchAppEntry(ts: typeof TS, file: string, src: string, opts: { 
 export const IOS_PACKAGE_URL = 'https://github.com/splithub-io/splithub-sdk';
 export const ANDROID_ARTIFACT = 'io.splithub:splithub';
 export const ANDROID_COMPOSE_ARTIFACT = 'io.splithub:splithub-compose';
-export const NATIVE_SDK_VERSION = '0.6.0';
+export const NATIVE_SDK_VERSION = '0.6.1';
 
 export function nativeSetup(app: 'ios' | 'android', publicKey: string | null, property: string | null = null): { install: string; quickStart: string } {
   const key = publicKey ?? 'pk_…';
   const prop = property ?? 'sh-…';
   if (app === 'ios')
     return {
-      install: `// Xcode: File → Add Package Dependencies → ${IOS_PACKAGE_URL}, then add sh2 to the target\n.package(url: "${IOS_PACKAGE_URL}", from: "${NATIVE_SDK_VERSION}")`,
+      install: `// Xcode: File → Add Package Dependencies → ${IOS_PACKAGE_URL}, then add SplitHub to the target\n.package(url: "${IOS_PACKAGE_URL}", from: "${NATIVE_SDK_VERSION}")`,
       quickStart: `import SplitHub\n\nSplitHub.start(publicKey: "${key}", property: "${prop}") // once, at launch\nlet cta = SplitHub.variant("hero-cta")               // "control", "bold", ...\nSplitHub.screen("Settings")                          // each screen\nSplitHub.track("Signup")                             // any event; a goal when marked as one`,
     };
   return {

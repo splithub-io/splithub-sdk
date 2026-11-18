@@ -1,6 +1,6 @@
 # @splithub/mcp
 
-MCP server for sh2. Lets Claude Code, Cursor, Codex or any MCP client run experiments
+MCP server for SplitHub. Lets Claude Code, Cursor, Codex or any MCP client run experiments
 (create, start, pause, finish, read verdicts, ship the winner) and read analytics (traffic,
 sources, funnels, paths, retention, realtime) through tools, on websites and in apps (React
 Native, Expo, iOS, Android), with the same config file and credentials as the `splithub` CLI.
@@ -37,10 +37,10 @@ Apps:
 The old names `splithub_create_experiment`, `splithub_set_status`, `splithub_create_property` and
 `splithub_set_property_status` still work for one release.
 
-With sh2 Cloud, results carry the verdict (`verdict.message`), a friendly line (`voice.line`)
+With SplitHub Cloud, results carry the verdict (`verdict.message`), a friendly line (`voice.line`)
 and ready-to-show text (`display`). Self-hosted projects get raw numbers only
-(`analysis.available: false`): the agent reports them and says verdicts come with sh2 Cloud.
-`splithub_plan` asks sh2 Cloud for the sample size; no account needed.
+(`analysis.available: false`): the agent reports them and says verdicts come with SplitHub Cloud.
+`splithub_plan` asks SplitHub Cloud for the sample size; no account needed.
 
 Env: `SPLITHUB_PROJECT_DIR` (defaults to the client's cwd), `SPLITHUB_API` (staging / self-hosted cloud),
 `SPLITHUB_API_KEY` (CI), `SPLITHUB_CLI` (path to a specific CLI build).

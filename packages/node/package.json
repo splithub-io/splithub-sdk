@@ -1,7 +1,7 @@
 {
   "name": "@splithub/node",
-  "version": "0.6.0",
-  "description": "Run sh2 on your own server: one handler for events from websites and apps, raw experiment results and analytics counts, your database behind a small Store interface.",
+  "version": "0.6.1",
+  "description": "Run SplitHub on your own server: one handler for events from websites and apps, raw experiment results and analytics counts, your database behind a small Store interface.",
   "keywords": [
     "splithub",
     "ab-testing",

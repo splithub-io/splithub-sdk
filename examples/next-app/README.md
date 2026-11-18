@@ -1,4 +1,4 @@
-# sh2 example: Next.js App Router, self-hosted
+# SplitHub example: Next.js App Router, self-hosted
 
 Generated with the CLI, then wired by hand (the parts an agent would do):
 

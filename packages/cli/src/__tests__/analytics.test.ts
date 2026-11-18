@@ -274,7 +274,7 @@ describe('splithub analytics (built CLI)', () => {
     const text = await new Promise<string>((done) => execFile(process.execPath, [cli, 'analytics'], { cwd: dir, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', SPLITHUB_API_KEY: 'sk_test', SPLITHUB_URL: '', SPLITHUB_API: url } }, (_e, stdout) => done(stdout)));
     expect(text).toMatch(/site\s+archived/);
     expect(text).toMatch(/blog\s+running/);
-    // Archiving is a sh2 Cloud state: a self-hosted project pauses instead.
+    // Archiving is a SplitHub Cloud state: a self-hosted project pauses instead.
     expect((await run(scratch('self'), ['analytics', 'archive', 'site'])).json).toMatchObject({ code: 'NOT_CLOUD' });
   });
 
@@ -287,11 +287,11 @@ describe('splithub analytics (built CLI)', () => {
     expect(seen).toContain('GET /api/splithub/properties/site?days=7');
     expect((await run(dir, ['analytics', 'site', '--url', `${url}/api/splithub`, '--from', 'monday'])).json).toMatchObject({ code: 'INVALID_FLAG' });
     const filtered = await run(dir, ['analytics', 'site', '--url', `${url}/api/splithub`, '--filter', 'country=DE', '--by', 'page']);
-    expect(filtered.json).toMatchObject({ code: 'NOT_CLOUD', error: expect.stringContaining('--filter, --by come with sh2 Cloud') });
+    expect(filtered.json).toMatchObject({ code: 'NOT_CLOUD', error: expect.stringContaining('--filter, --by come with SplitHub Cloud') });
     expect(seen.filter((s) => s.includes('country=DE'))).toEqual([]);
   });
 
-  it('says the cloud reports come with sh2 Cloud on a self-hosted project', async () => {
+  it('says the cloud reports come with SplitHub Cloud on a self-hosted project', async () => {
     const dir = scratch('self');
     expect((await run(dir, ['analytics', 'funnel', 'site', '--steps', 'page:/,page:/b'])).json).toMatchObject({ code: 'NOT_CLOUD' });
     expect((await run(dir, ['notes', 'add', 'Launch'])).json).toMatchObject({ code: 'NOT_CLOUD' });

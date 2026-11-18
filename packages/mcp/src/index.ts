@@ -20,7 +20,7 @@ type ToolReply = { content: Array<{ type: 'text'; text: string }>; structuredCon
 
 /** What to do next for each CLI error code. */
 const NEXT_BY_CODE: Record<string, string> = {
-  NOT_LOGGED_IN: 'This folder is not connected to sh2 Cloud: call splithub_login, show the link to the user, wait for their approval, then retry.',
+  NOT_LOGGED_IN: 'This folder is not connected to SplitHub Cloud: call splithub_login, show the link to the user, wait for their approval, then retry.',
   NO_CONFIG: 'No splithub.config.ts here: call splithub_init first (or set SPLITHUB_PROJECT_DIR to the app folder).',
   EXPERIMENT_NOT_FOUND: 'Call splithub_status for the experiment ids.',
   CONFIG_UNSAFE: 'Edit splithub.config.ts by hand where the experiment is defined, then call splithub_doctor.',
@@ -28,7 +28,7 @@ const NEXT_BY_CODE: Record<string, string> = {
   CONFIG_PARSE: 'Fix the error in splithub.config.ts, then call splithub_doctor.',
   KEY_CONFLICT: 'The key already belongs to another experiment in the cloud. Ask the user whether this is a new experiment (rename the key, or splithub_push with replace: the old numbers are cleared) or the same experiment (splithub_push with same). Never pick for them.',
   KEY_DELETED: 'A deleted experiment used this key. Rename the experiment key in splithub.config.ts (and in the code), then call splithub_push again.',
-  NOT_CLOUD: 'This project stores events in its own database (self-hosted). Experiment slices, breakdowns, timelines, engagement, events by variant and raw events, push, funnels, paths, retention, realtime, segments, notes, links and alerts come with sh2 Cloud: tell the user; splithub_analytics still reads raw counts.',
+  NOT_CLOUD: 'This project stores events in its own database (self-hosted). Experiment slices, breakdowns, timelines, engagement, events by variant and raw events, push, funnels, paths, retention, realtime, segments, notes, links and alerts come with SplitHub Cloud: tell the user; splithub_analytics still reads raw counts.',
   PRO_REQUIRED: 'Alert rules fire on Pro. Tell the user; they upgrade in the dashboard (Billing), then the rule can be turned on.',
   NOT_FOUND: 'Call the same tool with action list for the ids.',
   INSUFFICIENT_SCOPE: 'This API key lacks the scope named in `scope` (e.g. notes:write). Ask the user for a key with it (dashboard, Settings, API keys) or call splithub_login again.',
@@ -47,7 +47,7 @@ function reply(r: CliResult, options: { structured?: boolean } = {}): ToolReply 
 }
 
 // Output schemas mirror the CLI --json shapes (key fields; the rest passes through).
-// sh2 Cloud sends verdicts with ready-to-print words; a self-hosted endpoint sends raw counts and
+// SplitHub Cloud sends verdicts with ready-to-print words; a self-hosted endpoint sends raw counts and
 // `analysis: { available: false }`.
 const voiceShape = z
   .object({ scenario: z.string(), line: z.string(), advice: z.enum(['wait', 'ship', 'keep_control', 'move_on', 'fix_setup', 'hold']) })
@@ -60,7 +60,7 @@ const displayShape = z
 const analysisShape = z
   .object({ available: z.literal(false), message: z.string(), url: z.string() })
   .passthrough()
-  .describe('self-hosted: raw numbers only. Tell the user verdicts come with sh2 Cloud; never invent one');
+  .describe('self-hosted: raw numbers only. Tell the user verdicts come with SplitHub Cloud; never invent one');
 const verdictShape = z.object({ status: z.string(), message: z.string(), winner: z.string().nullable().optional(), notes: z.array(z.string()).optional() }).passthrough();
 const statusOutput = z.object({
   project: z.string(),
@@ -68,7 +68,7 @@ const statusOutput = z.object({
   properties: z
     .array(z.object({ property: z.string(), name: z.string(), status: z.string(), visitors: z.number(), previousVisitors: z.number(), change: z.number().nullable(), conversions: z.array(z.object({ goal: z.string(), conversions: z.number(), change: z.number().nullable() }).passthrough()) }).passthrough())
     .optional()
-    .describe('sh2 Cloud: analytics properties, last 7 days (propertiesRange) against the 7 before; change is relative, null = no visitors before'),
+    .describe('SplitHub Cloud: analytics properties, last 7 days (propertiesRange) against the 7 before; change is relative, null = no visitors before'),
   propertiesRange: z.object({ from: z.string(), to: z.string() }).optional(),
   analysis: analysisShape.optional(),
   next: z.string().optional(),
@@ -84,7 +84,7 @@ const resultsOutput = z.object({
   status: z.string().optional(),
   goal: z.string().nullable().optional(),
   scope: scopeShape.optional(),
-  verdict: verdictShape.optional().describe('sh2 Cloud only'),
+  verdict: verdictShape.optional().describe('SplitHub Cloud only'),
   daysToVerdict: z.number().nullable().optional().describe('days until a verdict at the current traffic; schedule the next check then'),
   voice: voiceShape.nullable().optional(),
   display: displayShape.optional(),
@@ -137,7 +137,7 @@ const LOOP = 'The loop: splithub_plan → splithub_experiment_create → wire th
 server.registerTool(
   'splithub_status',
   {
-    description: `Every experiment of this project with status, visitors, days, the verdict headline, sample (verdict.sample.quality: small | ok | good), stars (verdict.sample.stars, data quality 0..5) and daysToVerdict (days until a verdict at the current traffic: schedule the next check then, do not poll). verdict guardrail_breached = do not ship that variant. The __holdout row is the project holdout (long-term impact). properties[] (sh2 Cloud) is each analytics property's last 7 days against the 7 before (visitors, change, goal conversions): mention a big move; splithub_analytics has the details. Start here. A finished experiment is over but its variants are still in the code: report its verdict, ask the user which variant to keep and whether to remove the experiment, then call splithub_ship. display { label, lines, next } is ready to show; voice.line is the friendly line for humans; voice.advice move_on means suggest finishing the experiment and starting the next one. If analysis.available is false the project is self-hosted: report the raw numbers as they are, say verdicts come with sh2 Cloud (analysis.url), and never call a winner from raw rates. ${LOOP}`,
+    description: `Every experiment of this project with status, visitors, days, the verdict headline, sample (verdict.sample.quality: small | ok | good), stars (verdict.sample.stars, data quality 0..5) and daysToVerdict (days until a verdict at the current traffic: schedule the next check then, do not poll). verdict guardrail_breached = do not ship that variant. The __holdout row is the project holdout (long-term impact). properties[] (SplitHub Cloud) is each analytics property's last 7 days against the 7 before (visitors, change, goal conversions): mention a big move; splithub_analytics has the details. Start here. A finished experiment is over but its variants are still in the code: report its verdict, ask the user which variant to keep and whether to remove the experiment, then call splithub_ship. display { label, lines, next } is ready to show; voice.line is the friendly line for humans; voice.advice move_on means suggest finishing the experiment and starting the next one. If analysis.available is false the project is self-hosted: report the raw numbers as they are, say verdicts come with SplitHub Cloud (analysis.url), and never call a winner from raw rates. ${LOOP}`,
     outputSchema: statusOutput,
   },
   async () => reply(await runCli(['status']), { structured: true })
@@ -146,7 +146,7 @@ server.registerTool(
 server.registerTool(
   'splithub_results',
   {
-    description: 'Results of one experiment. sh2 Cloud gives the full verdict: sample per variant, lift, P(beat), SRM, winner; mvt adds factors[]. verdict.status guardrail_breached means do not ship: a variant made a guardrail metric worse (verdict.guardrailBreached[]); say what broke. verdict.metrics[] has secondary metrics and guardrails. The experiment __holdout is the project holdout (long-term impact of all experiments). Verdicts are sequential (always-valid, safe to check any time) and depend on sample size, not days. verdict.sample.quality is small (below the minimums), ok, or good (every variant has its share of verdict.sample.goodSample, default 5000 visitors): say it next to the verdict; it never changes the decision. verdict.sample.stars (0..5) is a data-quality score from verdict.sample.checks[] (minimum, split, goodSample, power, week; each { met, label }): report the stars and the unmet labels, never as a reason to override the verdict. Quote verdict.message verbatim, use comparisons[].sequential.pValue / sequential.ci (the plain pValue is fixed-horizon, display only: p = 0.01 there can be not significant) and relay verdict.notes[]. daysToVerdict says when to check again. Facts are in verdict.message; voice.line is the friendly line for humans (voice.advice move_on = suggest finishing the experiment and starting the next one); display { label, lines, next } is ready to show. If analysis.available is false the project is self-hosted: report the raw numbers as they are, say verdicts come with sh2 Cloud (analysis.url), and never call a winner from raw rates. If finished, ask which variant to keep, then splithub_ship. SLICE (sh2 Cloud): from / to (YYYY-MM-DD, project time zone) keep the visitors first exposed on those days, filters keep visitors by country, device, platform (ios, android, web…), app_version, source, channel, landing page, UTM…; the answer carries scope and the verdict is computed on that slice only: say so and quote scope.note, the decision stays with the unfiltered verdict. A slice carries no voice and no advice (numbers only): never suggest shipping or finishing from one. VIEWS (one at a time, same from / to / filters; the answer has view set): by splits visitors by a dimension, segments[] each with cells per variant (order[] = variants, control first) and comparisons[] (lift vs the control inside the segment, pValue, significant, better; small = too few visitors); timeline gives exposures[] and conversions[] per day and variant (a day = visitors first seen that day, conversions whenever they happened); engagement gives bounce rate, pages per visit and avgVisit (ms) per variant from the analytics property on the same visitors (property null = no analytics there); events gives rows[] for every goal (measured goal / metric / guardrail first) and event of these visitors, each with perVariant visitors and rate and comparisons[] against the control (property null = goals only, other events need analytics on the same site). Segments, engagement and events are for exploring: never call a winner from one segment or one event.',
+    description: 'Results of one experiment. SplitHub Cloud gives the full verdict: sample per variant, lift, P(beat), SRM, winner; mvt adds factors[]. verdict.status guardrail_breached means do not ship: a variant made a guardrail metric worse (verdict.guardrailBreached[]); say what broke. verdict.metrics[] has secondary metrics and guardrails. The experiment __holdout is the project holdout (long-term impact of all experiments). Verdicts are sequential (always-valid, safe to check any time) and depend on sample size, not days. verdict.sample.quality is small (below the minimums), ok, or good (every variant has its share of verdict.sample.goodSample, default 5000 visitors): say it next to the verdict; it never changes the decision. verdict.sample.stars (0..5) is a data-quality score from verdict.sample.checks[] (minimum, split, goodSample, power, week; each { met, label }): report the stars and the unmet labels, never as a reason to override the verdict. Quote verdict.message verbatim, use comparisons[].sequential.pValue / sequential.ci (the plain pValue is fixed-horizon, display only: p = 0.01 there can be not significant) and relay verdict.notes[]. daysToVerdict says when to check again. Facts are in verdict.message; voice.line is the friendly line for humans (voice.advice move_on = suggest finishing the experiment and starting the next one); display { label, lines, next } is ready to show. If analysis.available is false the project is self-hosted: report the raw numbers as they are, say verdicts come with SplitHub Cloud (analysis.url), and never call a winner from raw rates. If finished, ask which variant to keep, then splithub_ship. SLICE (SplitHub Cloud): from / to (YYYY-MM-DD, project time zone) keep the visitors first exposed on those days, filters keep visitors by country, device, platform (ios, android, web…), app_version, source, channel, landing page, UTM…; the answer carries scope and the verdict is computed on that slice only: say so and quote scope.note, the decision stays with the unfiltered verdict. A slice carries no voice and no advice (numbers only): never suggest shipping or finishing from one. VIEWS (one at a time, same from / to / filters; the answer has view set): by splits visitors by a dimension, segments[] each with cells per variant (order[] = variants, control first) and comparisons[] (lift vs the control inside the segment, pValue, significant, better; small = too few visitors); timeline gives exposures[] and conversions[] per day and variant (a day = visitors first seen that day, conversions whenever they happened); engagement gives bounce rate, pages per visit and avgVisit (ms) per variant from the analytics property on the same visitors (property null = no analytics there); events gives rows[] for every goal (measured goal / metric / guardrail first) and event of these visitors, each with perVariant visitors and rate and comparisons[] against the control (property null = goals only, other events need analytics on the same site). Segments, engagement and events are for exploring: never call a winner from one segment or one event.',
     inputSchema: {
       experiment: z.string().describe('experiment id (key)'),
       from: z.string().regex(DAY).optional().describe('first-exposure day, from (inclusive)'),
@@ -165,7 +165,7 @@ server.registerTool(
 server.registerTool(
   'splithub_experiment_events',
   {
-    description: 'The latest raw events of one experiment (sh2 Cloud, newest first): exposures (type exposure, the variant a visitor saw) and goals (type goal) with time, visitor, url, country. Same from / to / filters as splithub_results; type keeps one kind; nextBefore pages to older ones (pass it as before). Raw events stay 7 days (30 on Pro); the key needs events:read. Use to check that exposures and goals arrive after wiring code.',
+    description: 'The latest raw events of one experiment (SplitHub Cloud, newest first): exposures (type exposure, the variant a visitor saw) and goals (type goal) with time, visitor, url, country. Same from / to / filters as splithub_results; type keeps one kind; nextBefore pages to older ones (pass it as before). Raw events stay 7 days (30 on Pro); the key needs events:read. Use to check that exposures and goals arrive after wiring code.',
     inputSchema: {
       experiment: z.string().describe('experiment id (key)'),
       type: z.enum(['exposure', 'goal']).optional(),
@@ -182,7 +182,7 @@ server.registerTool(
 server.registerTool(
   'splithub_plan',
   {
-    description: 'Before creating an experiment: visitors per variant (and in all) to detect a relative lift `mde` on a `baseline` conversion rate, sized by sh2 Cloud for its sequential verdict (no account needed; fails with UNREACHABLE offline). With an experiment id, also the days left at its current traffic when its numbers are readable. If it takes months, suggest a bigger change or a busier page.',
+    description: 'Before creating an experiment: visitors per variant (and in all) to detect a relative lift `mde` on a `baseline` conversion rate, sized by SplitHub Cloud for its sequential verdict (no account needed; fails with UNREACHABLE offline). With an experiment id, also the days left at its current traffic when its numbers are readable. If it takes months, suggest a bigger change or a busier page.',
     inputSchema: {
       baseline: z.number().gt(0).lt(1).describe('conversion rate today, e.g. 0.05'),
       mde: z.number().gt(0).describe('smallest relative lift worth finding, e.g. 0.1 for +10%'),
@@ -289,7 +289,7 @@ const BY = ['source', 'referrer', 'channel', 'utm_source', 'utm_medium', 'utm_ca
 server.registerTool(
   'splithub_analytics',
   {
-    description: `Analytics properties (pageviews or app screens, and custom events, no variants). A property is kind site or app; in an app a screen is a page (url /ScreenName) and platform / app_version are dimensions for by and filters. Without property: every property with visitors, visits, pageviews and bounce for the last 30 days. With property: totals (visitors, newVisitors, sessions = visits, pageviews, events, bounces, duration in ms; bounce rate = bounces / sessions), goals (conversions = unique visitors who reached it in the range, completions = how many times, revenue), topPages and topSources (value "(none)" = direct). With by: rows grouped by a visit dimension, page, event or goal; goal adds that goal's conversions per row; variant (needs experiment) splits visits by the variant each visitor saw, trait (needs key) by an identify() trait. Range: days (last N days) or from / to (YYYY-MM-DD, project time zone). filters narrow the visits, e.g. { country: "DE,FR", source: "(none)" }. Self-hosted projects get raw counts only (analysis.available false): report them as they are and say full reports come with sh2 Cloud. compare adds previous (the compared range, with its dates in previous.range) for change against it: 'previous' (the same-length range right before), 'year' (the same days a year earlier) or 'YYYY-MM-DD..YYYY-MM-DD'. segment applies a saved segment (splithub_segments) by name or id. These are counts, not experiments: no verdicts, never call a winner from them.`,
+    description: `Analytics properties (pageviews or app screens, and custom events, no variants). A property is kind site or app; in an app a screen is a page (url /ScreenName) and platform / app_version are dimensions for by and filters. Without property: every property with visitors, visits, pageviews and bounce for the last 30 days. With property: totals (visitors, newVisitors, sessions = visits, pageviews, events, bounces, duration in ms; bounce rate = bounces / sessions), goals (conversions = unique visitors who reached it in the range, completions = how many times, revenue), topPages and topSources (value "(none)" = direct). With by: rows grouped by a visit dimension, page, event or goal; goal adds that goal's conversions per row; variant (needs experiment) splits visits by the variant each visitor saw, trait (needs key) by an identify() trait. Range: days (last N days) or from / to (YYYY-MM-DD, project time zone). filters narrow the visits, e.g. { country: "DE,FR", source: "(none)" }. Self-hosted projects get raw counts only (analysis.available false): report them as they are and say full reports come with SplitHub Cloud. compare adds previous (the compared range, with its dates in previous.range) for change against it: 'previous' (the same-length range right before), 'year' (the same days a year earlier) or 'YYYY-MM-DD..YYYY-MM-DD'. segment applies a saved segment (splithub_segments) by name or id. These are counts, not experiments: no verdicts, never call a winner from them.`,
     inputSchema: {
       property: z.string().optional().describe('property id; omit to list every property'),
       by: z.enum(BY).optional(),
@@ -320,7 +320,7 @@ server.registerTool(
 server.registerTool(
   'splithub_analytics_funnel',
   {
-    description: `Funnel of an analytics property (sh2 Cloud): visitors who reached each step in order. Steps: page:/path (patterns like page:/blog/* work), event:<name>, goal:<key>; 2 to 8. Or funnel: a saved funnel's name or id (splithub_analytics_funnels), which brings its steps and within. within: visit (same visit, default), 7d or 30d (from the first step). Answers steps[] with visitors, conversion (share of the first step) and dropoff (share lost since the step before); by splits it by a visit dimension. rolledUp: days older than 90 count nothing. Counts, not an experiment: never call a winner from it.`,
+    description: `Funnel of an analytics property (SplitHub Cloud): visitors who reached each step in order. Steps: page:/path (patterns like page:/blog/* work), event:<name>, goal:<key>; 2 to 8. Or funnel: a saved funnel's name or id (splithub_analytics_funnels), which brings its steps and within. within: visit (same visit, default), 7d or 30d (from the first step). Answers steps[] with visitors, conversion (share of the first step) and dropoff (share lost since the step before); by splits it by a visit dimension. rolledUp: days older than 90 count nothing. Counts, not an experiment: never call a winner from it.`,
     inputSchema: {
       property: z.string(),
       steps: z.array(z.string()).min(2).max(8).optional().describe('e.g. ["page:/", "event:Signup", "goal:paid"]; omit with funnel'),
@@ -336,7 +336,7 @@ server.registerTool(
 server.registerTool(
   'splithub_analytics_funnels',
   {
-    description: 'Saved funnels of an analytics property (sh2 Cloud), shown on its Funnels tab for the whole team. Without save or delete: the list (id, name, steps, within). save + steps: save one under that name (a name already saved updates it; steps and within as in splithub_analytics_funnel). delete: remove one by id or name. Run one with splithub_analytics_funnel { funnel }.',
+    description: 'Saved funnels of an analytics property (SplitHub Cloud), shown on its Funnels tab for the whole team. Without save or delete: the list (id, name, steps, within). save + steps: save one under that name (a name already saved updates it; steps and within as in splithub_analytics_funnel). delete: remove one by id or name. Run one with splithub_analytics_funnel { funnel }.',
     inputSchema: {
       property: z.string(),
       save: z.string().max(60).optional().describe('name of the funnel to save or update'),
@@ -355,7 +355,7 @@ server.registerTool(
 server.registerTool(
   'splithub_analytics_paths',
   {
-    description: 'Where visits went right after a page (or, with direction prev, where they came from), within the visit (sh2 Cloud). rows[] { value, visits }; (exit) = left the site, (entrance) = landed on the page.',
+    description: 'Where visits went right after a page (or, with direction prev, where they came from), within the visit (SplitHub Cloud). rows[] { value, visits }; (exit) = left the site, (entrance) = landed on the page.',
     inputSchema: { property: z.string(), page: z.string().describe('a path like /pricing or /blog/*'), direction: z.enum(['next', 'prev']).optional(), ...RANGE },
   },
   async (a) => reply(await runCli(['analytics', 'paths', a.property, '--page', a.page, ...(a.direction === 'prev' ? ['--prev'] : []), ...rangeArgs(a)]))
@@ -364,7 +364,7 @@ server.registerTool(
 server.registerTool(
   'splithub_analytics_retention',
   {
-    description: 'Retention cohorts of an analytics property (sh2 Cloud), the key report for apps: users grouped by the day or week they started (start: visit, event:<name> or goal:<key>), and how many came back (return: visit or event:<name>) in period 0, 1, 2… cohorts[] { start, users, retained[] }; retained[0] is the cohort period itself, retained[i] / users is the share. Ranges longer than 90 days / 26 weeks are cut (clamped: true). Default: start visit, return visit, period week. filters take platform (ios, android, web…) and app_version too. Counts, not an experiment.',
+    description: 'Retention cohorts of an analytics property (SplitHub Cloud), the key report for apps: users grouped by the day or week they started (start: visit, event:<name> or goal:<key>), and how many came back (return: visit or event:<name>) in period 0, 1, 2… cohorts[] { start, users, retained[] }; retained[0] is the cohort period itself, retained[i] / users is the share. Ranges longer than 90 days / 26 weeks are cut (clamped: true). Default: start visit, return visit, period week. filters take platform (ios, android, web…) and app_version too. Counts, not an experiment.',
     inputSchema: {
       property: z.string(),
       start: z.string().optional().describe('visit | event:<name> | goal:<key>'),
@@ -379,7 +379,7 @@ server.registerTool(
 server.registerTool(
   'splithub_analytics_realtime',
   {
-    description: 'Who is on an analytics property right now (sh2 Cloud): activeVisitors5m, pageviews and events per minute over the last 30 minutes, top pages and sources. Use to confirm tracking works after a deploy.',
+    description: 'Who is on an analytics property right now (SplitHub Cloud): activeVisitors5m, pageviews and events per minute over the last 30 minutes, top pages and sources. Use to confirm tracking works after a deploy.',
     inputSchema: { property: z.string() },
   },
   async ({ property }) => reply(await runCli(['analytics', 'realtime', property]))
@@ -388,7 +388,7 @@ server.registerTool(
 server.registerTool(
   'splithub_segments',
   {
-    description: 'Saved segments: named report filters every report can apply (segment on splithub_analytics, funnel, paths, retention). Without arguments: the list. save + filters: save one (filters like { country: "DE,FR", channel: "Paid Search" }; property limits it to one property). delete: remove one by id or name. sh2 Cloud.',
+    description: 'Saved segments: named report filters every report can apply (segment on splithub_analytics, funnel, paths, retention). Without arguments: the list. save + filters: save one (filters like { country: "DE,FR", channel: "Paid Search" }; property limits it to one property). delete: remove one by id or name. SplitHub Cloud.',
     inputSchema: {
       save: z.string().max(60).optional().describe('name of the segment to save'),
       filters: z.record(z.string()).optional().describe('dimension → comma-separated values'),
@@ -408,7 +408,7 @@ server.registerTool(
   'splithub_notes',
   {
     description:
-      'Notes: what happened on a day (a launch, an outage, a campaign), shown on experiment timelines and analytics charts (sh2 Cloud). action list (default): newest first; experiment or property narrows it (project-wide notes come too), kind filters, days / from / to set the range. add: text (day defaults to today in the project time zone; kind note | issue | win; experiment or property ties it to one, none = the whole project). edit: id + text / kind / day. delete: id. Add one when you ship something that may move the numbers.',
+      'Notes: what happened on a day (a launch, an outage, a campaign), shown on experiment timelines and analytics charts (SplitHub Cloud). action list (default): newest first; experiment or property narrows it (project-wide notes come too), kind filters, days / from / to set the range. add: text (day defaults to today in the project time zone; kind note | issue | win; experiment or property ties it to one, none = the whole project). edit: id + text / kind / day. delete: id. Add one when you ship something that may move the numbers.',
     inputSchema: {
       action: z.enum(['list', 'add', 'edit', 'delete']).optional(),
       id: z.string().optional().describe('note id (edit, delete)'),
@@ -437,7 +437,7 @@ server.registerTool(
   'splithub_links',
   {
     description:
-      'Short links (sh2 Cloud): one short URL that redirects to one or more destinations split by weight (split visitors between landing pages without code), clicks counted. action list (default): every link with totalClicks. stats: one link (id or slug): clicks per day (30 days), per destination, country, device, referrer, unique visitors. create: urls (one or more full http(s) URLs), slug (3-32 letters, digits, - _; random when omitted), name, weights (one per URL). edit: name / slug / description. pause, resume, delete: by id or slug. Targeting by country, device or a flow is done in the dashboard.',
+      'Short links (SplitHub Cloud): one short URL that redirects to one or more destinations split by weight (split visitors between landing pages without code), clicks counted. action list (default): every link with totalClicks. stats: one link (id or slug): clicks per day (30 days), per destination, country, device, referrer, unique visitors. create: urls (one or more full http(s) URLs), slug (3-32 letters, digits, - _; random when omitted), name, weights (one per URL). edit: name / slug / description. pause, resume, delete: by id or slug. Targeting by country, device or a flow is done in the dashboard.',
     inputSchema: {
       action: z.enum(['list', 'stats', 'create', 'edit', 'pause', 'resume', 'delete']).optional(),
       link: z.string().optional().describe('link id or slug (stats, edit, pause, resume, delete)'),
@@ -462,7 +462,7 @@ server.registerTool(
   'splithub_alerts',
   {
     description:
-      "Alert rules (sh2 Cloud; they fire on Pro, a rule added on another plan is saved switched off). action list (default): rules with condition, params (params.progress { total, fired, month? } on usage and event_count is read-only), enabled; channels; history (recent alerts). add: condition + params. Experiment conditions (experiment = one key, omit for every running one): srm (broken split), winner (minVisitors?), loser (lift %, minVisitors?), exposures (visitors), conversions (conversions), duration (days), no_events (hours). Account: quota (percent of the monthly allowance), usage (every: alert each time this month's billed events cross another multiple, e.g. 1000). Analytics (property required): traffic_drop / traffic_spike (percent vs the same 24 hours a week before), goal_silent (goal, hours), event_count (event, any event when omitted; count; repeat = every count instead of once). Experiment rules may also pause, finish or dropLoser (winner / loser). enable, disable, delete, test (dry run: what would fire now, nothing sent): rule = id, the start of it, or the name. Where alerts go (email, Slack, Discord, webhook) is set in the dashboard.",
+      "Alert rules (SplitHub Cloud; they fire on Pro, a rule added on another plan is saved switched off). action list (default): rules with condition, params (params.progress { total, fired, month? } on usage and event_count is read-only), enabled; channels; history (recent alerts). add: condition + params. Experiment conditions (experiment = one key, omit for every running one): srm (broken split), winner (minVisitors?), loser (lift %, minVisitors?), exposures (visitors), conversions (conversions), duration (days), no_events (hours). Account: quota (percent of the monthly allowance), usage (every: alert each time this month's billed events cross another multiple, e.g. 1000). Analytics (property required): traffic_drop / traffic_spike (percent vs the same 24 hours a week before), goal_silent (goal, hours), event_count (event, any event when omitted; count; repeat = every count instead of once). Experiment rules may also pause, finish or dropLoser (winner / loser). enable, disable, delete, test (dry run: what would fire now, nothing sent): rule = id, the start of it, or the name. Where alerts go (email, Slack, Discord, webhook) is set in the dashboard.",
     inputSchema: {
       action: z.enum(['list', 'add', 'enable', 'disable', 'delete', 'test']).optional(),
       rule: z.string().optional().describe('rule id, id prefix or name (enable, disable, delete, test)'),
@@ -571,7 +571,7 @@ for (const [name, old] of [['splithub_property_status', false], ['splithub_set_p
     {
       description: old
         ? oldName('splithub_property_status')
-        : 'Pause or resume an analytics property (paused: its pageviews and events are dropped and not billed). Updates splithub.config.ts; in cloud mode it applies live within a minute. archived (sh2 Cloud) stops collecting and hides it like the dashboard Archive, numbers kept; restored brings it back paused. removed takes it out of the config (a dashboard-made property is deleted in the cloud with its numbers).',
+        : 'Pause or resume an analytics property (paused: its pageviews and events are dropped and not billed). Updates splithub.config.ts; in cloud mode it applies live within a minute. archived (SplitHub Cloud) stops collecting and hides it like the dashboard Archive, numbers kept; restored brings it back paused. removed takes it out of the config (a dashboard-made property is deleted in the cloud with its numbers).',
       inputSchema: { property: z.string(), status: z.enum(['running', 'paused', 'archived', 'restored', 'removed']) },
     },
     async ({ property, status }) => reply(await runCli(['analytics', PROPERTY_STATUS_CMD[status], property]))
@@ -580,7 +580,7 @@ for (const [name, old] of [['splithub_property_status', false], ['splithub_set_p
 server.registerTool(
   'splithub_domains',
   {
-    description: `Allowed domains, per experiment and per analytics property (sh2 Cloud). Without arguments: every allowed domain with where it applies, which experiments / properties accept any origin, and the origins seen sending events. With kind + id + hosts: replace that experiment's or property's list (subdomains included; an empty list accepts any origin again). Events from an origin outside the list are dropped (403 when nothing in the batch is allowed).`,
+    description: `Allowed domains, per experiment and per analytics property (SplitHub Cloud). Without arguments: every allowed domain with where it applies, which experiments / properties accept any origin, and the origins seen sending events. With kind + id + hosts: replace that experiment's or property's list (subdomains included; an empty list accepts any origin again). Events from an origin outside the list are dropped (403 when nothing in the batch is allowed).`,
     inputSchema: {
       kind: z.enum(['experiment', 'property', 'test']).optional().describe('experiment or property (test is an old name for experiment)'),
       id: z.string().optional(),
@@ -624,14 +624,14 @@ server.registerTool(
 
 server.registerTool(
   'splithub_review',
-  { description: 'AI reviews of an experiment stored in sh2 Cloud (Pro): written at the start, when the verdict changes while it runs, when it finishes, or on demand in the dashboard. Newest first. Quote them as an opinion; the verdict stays the source of truth.', inputSchema: { experiment: z.string().optional().describe('experiment id; omit for every experiment of the project') } },
+  { description: 'AI reviews of an experiment stored in SplitHub Cloud (Pro): written at the start, when the verdict changes while it runs, when it finishes, or on demand in the dashboard. Newest first. Quote them as an opinion; the verdict stays the source of truth.', inputSchema: { experiment: z.string().optional().describe('experiment id; omit for every experiment of the project') } },
   async ({ experiment }) => reply(await runCli(experiment ? ['review', experiment] : ['review']))
 );
 
 server.registerTool(
   'splithub_push',
   {
-    description: 'Upload splithub.config.ts to sh2 Cloud (cloud mode). Also returns kept: experiments the cloud has from an earlier push that this file lacks, left as they are. prune removes those: only when the user asked for it. Returns experiments created in the dashboard that were written into the file. dryRun: only check the config and show what would change. A key that already belonged to another experiment fails with KEY_CONFLICT: ask the user, then push with replace (new experiment, old numbers cleared) or same (same experiment, numbers stay).',
+    description: 'Upload splithub.config.ts to SplitHub Cloud (cloud mode). Also returns kept: experiments the cloud has from an earlier push that this file lacks, left as they are. prune removes those: only when the user asked for it. Returns experiments created in the dashboard that were written into the file. dryRun: only check the config and show what would change. A key that already belonged to another experiment fails with KEY_CONFLICT: ask the user, then push with replace (new experiment, old numbers cleared) or same (same experiment, numbers stay).',
     inputSchema: {
       dryRun: z.boolean().optional(),
       replace: z.array(z.string()).optional().describe('keys that are new experiments: the old numbers under them are cleared'),
@@ -651,9 +651,9 @@ server.registerTool(
 server.registerTool('splithub_pull', { description: 'Fetch the cloud config and write dashboard-created experiments into splithub.config.ts.' }, async () => reply(await runCli(['pull'])));
 server.registerTool('splithub_doctor', { description: 'Check the installation: config, provider, middleware, routes, code references, endpoint; in a React Native / Expo app also the package, its storage module and redirect experiments; in a native iOS / Android project the SDK in the build files. Run after wiring code; ok: false lists what to fix.' }, async () => reply(await runCli(['doctor'])));
 server.registerTool('splithub_whoami', { description: 'Which cloud project this folder is connected to, and its public key.' }, async () => reply(await runCli(['whoami'])));
-server.registerTool('splithub_projects', { description: 'Every folder on this machine connected to a sh2 Cloud project, the current one marked (current).' }, async () => reply(await runCli(['projects'])));
+server.registerTool('splithub_projects', { description: 'Every folder on this machine connected to a SplitHub Cloud project, the current one marked (current).' }, async () => reply(await runCli(['projects'])));
 
-server.registerTool('splithub_login', { description: 'Connect this folder to sh2 Cloud. Returns a sign-in link and a code: show them to the user, who approves in the browser (and can create a project there). The CLI then stores a project API key for this folder. Call splithub_whoami afterwards.' }, async () => {
+server.registerTool('splithub_login', { description: 'Connect this folder to SplitHub Cloud. Returns a sign-in link and a code: show them to the user, who approves in the browser (and can create a project there). The CLI then stores a project API key for this folder. Call splithub_whoami afterwards.' }, async () => {
   const r = await startLogin();
   if ('error' in r) return { content: [{ type: 'text' as const, text: JSON.stringify(r) }], isError: r.error !== 'already logged in' };
   return { content: [{ type: 'text' as const, text: `Open this link to connect: ${r.verifyUrl}\nCode: ${r.userCode} (expires in ${Math.round(r.expiresIn / 60)} min)\nWaiting for the approval in the background; call splithub_whoami to check.` }] };
@@ -661,7 +661,7 @@ server.registerTool('splithub_login', { description: 'Connect this folder to sh2
 
 server.registerTool(
   'splithub_init',
-  { description: 'Set up sh2 in this project: config file, framework files, agent skills; React Native / Expo apps also get @splithub/react-native and their entry (App.tsx, app/_layout.tsx) wrapped in <SplitHubProvider> with screen tracking (app.entry.status added | already | manual: wire nextStep by hand); native iOS / Android get install lines and a quick start (app.install, app.quickStart) and no config file; in cloud mode see splithub_login to connect. Use once per project. githubAction: also write a GitHub workflow (checks on PRs, results comment on a schedule).', inputSchema: { mode: z.enum(['cloud', 'self']).default('cloud'), key: z.string().optional().describe('public key pk_… when known'), githubAction: z.boolean().optional() } },
+  { description: 'Set up SplitHub in this project: config file, framework files, agent skills; React Native / Expo apps also get @splithub/react-native and their entry (App.tsx, app/_layout.tsx) wrapped in <SplitHubProvider> with screen tracking (app.entry.status added | already | manual: wire nextStep by hand); native iOS / Android get install lines and a quick start (app.install, app.quickStart) and no config file; in cloud mode see splithub_login to connect. Use once per project. githubAction: also write a GitHub workflow (checks on PRs, results comment on a schedule).', inputSchema: { mode: z.enum(['cloud', 'self']).default('cloud'), key: z.string().optional().describe('public key pk_… when known'), githubAction: z.boolean().optional() } },
   async ({ mode, key, githubAction }) => {
     const args = ['init', '--mode', mode, '--yes', '--no-install', '--no-login'];
     if (key) args.push('--key', key);

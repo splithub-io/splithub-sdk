@@ -35,9 +35,9 @@ export function funnelStepsError(input: string): string | undefined {
   const bad = steps.find((s) => !/^(page:\/\S*|event:.+|goal:.+)$/.test(s));
   return bad ? `"${bad}": start with page:/, event: or goal:` : undefined;
 }
-export const CLOUD_ONLY = 'Allowed domains come with sh2 Cloud: a self-hosted endpoint accepts events from wherever you mount it.';
+export const CLOUD_ONLY = 'Allowed domains come with SplitHub Cloud: a self-hosted endpoint accepts events from wherever you mount it.';
 
-/** Options of the Analytics submenu. Realtime, funnels, paths and retention come with sh2 Cloud; the rest reads raw counts when self-hosted. */
+/** Options of the Analytics submenu. Realtime, funnels, paths and retention come with SplitHub Cloud; the rest reads raw counts when self-hosted. */
 export function analyticsOptions(mode: Mode = 'cloud'): Array<{ value: AnalyticsAction; label: string; hint?: string }> {
   const cloud: Array<{ value: AnalyticsAction; label: string; hint?: string }> = [
     { value: 'realtime', label: "Who's here now", hint: 'last 5 minutes' },

@@ -8,13 +8,13 @@
 //   splithub analytics <id> --compare [year | <from>..<to>]   change against the period right before, a year earlier or chosen days
 //   splithub analytics events <id> [--limit 50]
 //   splithub analytics pause|resume <id>
-//   splithub analytics archive|restore <id>     sh2 Cloud: like Archive in the dashboard (stops collecting, leaves the list, numbers kept)
+//   splithub analytics archive|restore <id>     SplitHub Cloud: like Archive in the dashboard (stops collecting, leaves the list, numbers kept)
 //   splithub analytics remove <id>
 //   splithub analytics funnel|funnels|paths|retention|realtime|props|export|segments ...   (analytics-reports.ts)
 //
 // Like experiments, properties are declared in splithub.config.ts; pause / resume also apply
 // live in the cloud. Self-hosted endpoints answer raw counts and rows; reports (visits,
-// sources, pages, conversions) come from sh2 Cloud.
+// sources, pages, conversions) come from SplitHub Cloud.
 
 import { newPropertyId } from '@splithub/core';
 import { relative } from 'node:path';
@@ -221,11 +221,11 @@ async function report(key: string, flags: Flags): Promise<void> {
   console.log(c.dim(`\nMore: --by page|source|channel|country|device|event|goal, --compare [year|<from>..<to>], --days 7, --filter country=DE, funnel|paths|retention|realtime <id>`));
 }
 
-/** Self-hosted reads take a day range only; anything else is a sh2 Cloud report, said so instead of ignored. */
+/** Self-hosted reads take a day range only; anything else is a SplitHub Cloud report, said so instead of ignored. */
 function rawOnlyFlags(flags: Flags): void {
   const extra = [['--filter', Object.keys(filterFlags(flags)).length > 0], ['--segment', Boolean(str(flags.segment))], ['--by', Boolean(str(flags.by))], ['--compare', flags.compare !== undefined && flags.compare !== false]] as const;
   const used = extra.filter(([, on]) => on).map(([flag]) => flag);
-  if (used.length) fail('NOT_CLOUD', `${used.join(', ')} come${used.length === 1 ? 's' : ''} with sh2 Cloud: a self-hosted endpoint reads raw counts by day range only.`, 'Read them with --days 7, or --from 2026-10-01 --to 2026-10-31 (UTC days).');
+  if (used.length) fail('NOT_CLOUD', `${used.join(', ')} come${used.length === 1 ? 's' : ''} with SplitHub Cloud: a self-hosted endpoint reads raw counts by day range only.`, 'Read them with --days 7, or --from 2026-10-01 --to 2026-10-31 (UTC days).');
 }
 
 async function rawReport(t: Target, key: string, flags: Flags): Promise<void> {
@@ -365,7 +365,7 @@ async function setStatus(key: string, status: 'running' | 'paused', flags: Flags
 }
 
 /**
- * Archive or restore a property in sh2 Cloud, as the dashboard does: the same PATCH, for a
+ * Archive or restore a property in SplitHub Cloud, as the dashboard does: the same PATCH, for a
  * dashboard-made or a config property alike (the file is left as it is; push keeps it archived).
  */
 async function archive(key: string, archived: boolean, flags: Flags): Promise<void> {

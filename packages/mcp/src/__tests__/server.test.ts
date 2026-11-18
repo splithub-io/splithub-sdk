@@ -108,7 +108,7 @@ describe('@splithub/mcp', () => {
     // The old name runs the same command.
     const resumed = await client.callTool({ name: 'splithub_set_property_status', arguments: { property: 'site', status: 'running' } });
     expect(JSON.parse((resumed.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ property: 'site', status: 'running' });
-    // Archiving is a sh2 Cloud state; a self-hosted project pauses instead.
+    // Archiving is a SplitHub Cloud state; a self-hosted project pauses instead.
     const archived = await client.callTool({ name: 'splithub_property_status', arguments: { property: 'site', status: 'archived' } });
     expect(archived.isError).toBe(true);
     expect(JSON.parse((archived.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ code: 'NOT_CLOUD' });

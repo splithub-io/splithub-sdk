@@ -1,4 +1,4 @@
-// `splithub status` prints the analytics properties sh2 Cloud sends after the experiments.
+// `splithub status` prints the analytics properties SplitHub Cloud sends after the experiments.
 import { afterEach, expect, it, vi } from 'vitest';
 import { printProperties } from '../commands/status';
 

@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://sh2.uk"><img src=".github/splithub.jpg" alt="sh2" width="640"></a>
+  <a href="https://sh2.uk"><img src=".github/splithub.jpg" alt="SplitHub" width="640"></a>
 </p>
 
 <p align="center">
@@ -26,13 +26,13 @@ One install gives you both: A/B experiments with a plain verdict, and analytics 
 npx splithub init
 ```
 
-## Why sh2
+## Why SplitHub
 
 - **Config in your code.** Experiments live in `splithub.config.ts`, reviewed in pull requests like everything else.
 - **No flicker, no network on render.** Who sees which variant is a local hash, decided before the first paint. The same hash runs in the browser, on the server and in the iOS and Android SDKs, so a visitor gets the same variant everywhere.
 - **Websites and apps.** React Native, Expo, Swift and Kotlin apps send screens and events to the same reports, and keep them on the device while offline.
 - **One `track()` for everything.** Any event you send feeds the analytics reports and converts every experiment that measures it. No second tracking setup.
-- **A verdict, not a chart to decode.** sh2 Cloud says when a variant wins, and peeking early never fools it.
+- **A verdict, not a chart to decode.** SplitHub Cloud says when a variant wins, and peeking early never fools it.
 - **Made for agents.** The CLI answers in JSON, and the MCP server gives Claude Code, Cursor and Codex the same tools you have.
 - **Your data, if you want it.** Send events to your own database instead (SQLite, D1, Postgres, MySQL) and read the raw numbers.
 
@@ -165,7 +165,7 @@ import { SplitHubProvider, ExpoRouterScreens, Experiment, Variant, useTrack } fr
 iOS (Swift package, iOS 14+):
 
 ```swift
-.package(url: "https://github.com/splithub-io/splithub-sdk", from: "0.6.0")
+.package(url: "https://github.com/splithub-io/splithub-sdk", from: "0.6.1")
 
 SplitHub.start(publicKey: "pk_...", property: "sh-x1h78w")
 let button = SplitHub.variant("checkout-button")
@@ -175,16 +175,16 @@ SplitHub.track("Purchase", props: ["revenue": 29])
 Android (Kotlin, min SDK 21):
 
 ```kotlin
-implementation("io.splithub:splithub:0.6.0")
+implementation("io.splithub:splithub:0.6.1")
 
 SplitHub.start(this, "pk_...", property = "sh-x1h78w")
 val cta = SplitHub.variant("hero-cta")
 SplitHub.track("signup")
 ```
 
-An app can't redeploy in minutes, so its variants ship in the build and everything else comes from sh2 Cloud: start, pause, weights, values and new `value` experiments reach installed apps on the next launch. Retention by day or week shows who comes back after the first open.
+An app can't redeploy in minutes, so its variants ship in the build and everything else comes from SplitHub Cloud: start, pause, weights, values and new `value` experiments reach installed apps on the next launch. Retention by day or week shows who comes back after the first open.
 
-## Also in sh2 Cloud
+## Also in SplitHub Cloud
 
 - **Notes:** mark launches, outages and campaigns; they show on every chart.
 - **Short links:** links with click counts, and split links that send traffic to several pages.
@@ -232,9 +232,9 @@ Three complete apps live in [`examples/`](examples): Vite + React, Next.js and a
 
 ## Cloud or your own database
 
-| | sh2 Cloud | Self-hosted |
+| | SplitHub Cloud | Self-hosted |
 |---|---|---|
-| Where events go | sh2 Cloud | Your database: SQLite, D1, Postgres, MySQL |
+| Where events go | SplitHub Cloud | Your database: SQLite, D1, Postgres, MySQL |
 | Experiments | Verdict, lift, data quality, sample size, slices | Visitors, conversions, rate and revenue per variant |
 | Analytics | Every report above | Raw counts of pages and events |
 | Setup | `npx splithub login` | `npx splithub init --mode self` |

@@ -1,4 +1,4 @@
-// splithub alerts — alert rules on sh2 Cloud (they run on Pro): a message on the project's
+// splithub alerts — alert rules on SplitHub Cloud (they run on Pro): a message on the project's
 // channels (email, Slack, Discord, webhook) when something happens, and for experiments optionally
 // pause / finish / drop the losing variant.
 //

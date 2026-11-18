@@ -1,7 +1,7 @@
 {
   "name": "@splithub/mcp",
-  "version": "0.6.0",
-  "description": "sh2 as MCP tools for Claude Code, Cursor and Codex: run A/B experiments on websites and apps, read verdicts, and read analytics, funnels, paths and retention.",
+  "version": "0.6.1",
+  "description": "SplitHub as MCP tools for Claude Code, Cursor and Codex: run A/B experiments on websites and apps, read verdicts, and read analytics, funnels, paths and retention.",
   "keywords": [
     "splithub",
     "ab-testing",

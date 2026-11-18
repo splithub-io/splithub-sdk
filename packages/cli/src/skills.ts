@@ -17,14 +17,14 @@ export interface Skill {
 
 export const SKILL_SPLITHUB = `---
 name: splithub
-description: Add, change, run or read experiments in an app that uses sh2 (@splithub/react, splithub.config.ts, the splithub CLI, sh2 Cloud). Use when the user asks to A/B test a component, headline, image, price, CTA or page, asks which variant is winning, or wants to start, pause or finish an experiment; also for notes on the charts, alert rules (events used, traffic, goals, winners), short links and allowed domains.
+description: Add, change, run or read experiments in an app that uses SplitHub (@splithub/react, splithub.config.ts, the splithub CLI, SplitHub Cloud). Use when the user asks to A/B test a component, headline, image, price, CTA or page, asks which variant is winning, or wants to start, pause or finish an experiment; also for notes on the charts, alert rules (events used, traffic, goals, winners), short links and allowed domains.
 ---
 
-# sh2 for coding agents
+# SplitHub for coding agents
 
 Three pieces: \`splithub.config.ts\` (the experiments; source of truth when it exists),
 \`@splithub/react\` (renders variants), the \`splithub\` CLI (creates, pushes, reads results).
-Events go to the app's own database (self mode) or to sh2 Cloud (cloud mode).
+Events go to the app's own database (self mode) or to SplitHub Cloud (cloud mode).
 
 ## Where things live
 
@@ -104,7 +104,7 @@ visitors; \`create --good-sample\`); say it next to the verdict. \`verdict.sampl
 \`verdict.sample.checks[]\`: report the stars and the unmet labels; they never override the verdict. \`daysToVerdict\` says when to look again.
 Never declare a winner from raw rates. \`srm_detected\` means the split is broken: fix the setup before anything else.
 
-### Slices, breakdowns, timelines (sh2 Cloud)
+### Slices, breakdowns, timelines (SplitHub Cloud)
 
 - A slice: \`npx splithub results <id> --from 2026-10-01 --to 2026-10-15 --filter country=DE --filter channel="Paid Search" --json\`.
   \`from\` / \`to\` are first-exposure days (project time zone): the visitors who entered the experiment then, with all their
@@ -140,7 +140,7 @@ Whenever you see an experiment with \`status: finished\` (in \`status\`, \`resul
 
 A \`paused\` experiment is not over: say so and ask whether to resume (\`start\`) or finish it.
 
-## Around experiments (sh2 Cloud)
+## Around experiments (SplitHub Cloud)
 
 - **Notes**: what happened on a day, marked on experiment timelines and analytics charts. \`npx splithub notes add "Launched the
   new pricing page" [--kind note|issue|win] [--experiment <key> | --property <id>] [--day 2026-10-05]\` (none = the whole
@@ -225,10 +225,10 @@ SRM = the split differs from the configured weights · guardrail = a metric that
 
 export const SKILL_SPLITHUB_API = `---
 name: splithub-api
-description: Use the sh2 Cloud HTTP API directly: public key event ingest, API-key endpoints for config, status, results, overrides, analytics reports, notes, short links and alert rules. Use when writing a server, a script, a non-JS client, or when the CLI is not available.
+description: Use the SplitHub Cloud HTTP API directly: public key event ingest, API-key endpoints for config, status, results, overrides, analytics reports, notes, short links and alert rules. Use when writing a server, a script, a non-JS client, or when the CLI is not available.
 ---
 
-# sh2 Cloud API
+# SplitHub Cloud API
 
 Base URL: \`https://go.sh2.uk\`. JSON in, JSON out (no envelope under \`/v1/*\`). Two credentials:
 
@@ -375,10 +375,10 @@ or only the first of the two collects pageviews.
 
 export const SKILL_SPLITHUB_MCP = `---
 name: splithub-mcp
-description: Use or set up the sh2 MCP server (@splithub/mcp) so an agent can create experiments, read verdicts, start/pause/finish experiments and push config through tools instead of shelling out, plus analytics, notes, alerts and short links. Use when the user asks to connect sh2 to Claude Code, Cursor, Codex or another MCP client.
+description: Use or set up the SplitHub MCP server (@splithub/mcp) so an agent can create experiments, read verdicts, start/pause/finish experiments and push config through tools instead of shelling out, plus analytics, notes, alerts and short links. Use when the user asks to connect SplitHub to Claude Code, Cursor, Codex or another MCP client.
 ---
 
-# sh2 MCP server
+# SplitHub MCP server
 
 \`@splithub/mcp\` is a stdio MCP server that wraps the \`splithub\` CLI for the current project folder.
 Same credentials and config file as the CLI; nothing extra to configure.

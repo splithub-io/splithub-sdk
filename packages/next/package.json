@@ -1,7 +1,7 @@
 {
   "name": "@splithub/next",
-  "version": "0.6.0",
-  "description": "sh2 for Next.js: experiments and analytics with middleware, server components, redirect experiments and the route for your own database.",
+  "version": "0.6.1",
+  "description": "SplitHub for Next.js: experiments and analytics with middleware, server components, redirect experiments and the route for your own database.",
   "keywords": [
     "splithub",
     "ab-testing",

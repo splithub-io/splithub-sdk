@@ -7,7 +7,7 @@ import type { ProjectInfo } from './project';
 export interface Target {
   url: string;
   token?: string;
-  /** sh2 Cloud (verdicts computed there); false for a self-hosted endpoint or an explicit --url. */
+  /** SplitHub Cloud (verdicts computed there); false for a self-hosted endpoint or an explicit --url. */
   cloud?: boolean;
 }
 
@@ -118,7 +118,7 @@ export async function requestText(target: Target, path: string): Promise<string>
 /** Cloud target that must carry an API key. */
 export function requireCloudToken(flags: Record<string, unknown>): Target & { token: string } {
   const target = cloudTarget(flags);
-  if (!target.token) fail('NOT_LOGGED_IN', 'This folder is not connected to sh2 Cloud.', 'Run npx splithub login, or pass --token sk_... / SPLITHUB_API_KEY.');
+  if (!target.token) fail('NOT_LOGGED_IN', 'This folder is not connected to SplitHub Cloud.', 'Run npx splithub login, or pass --token sk_... / SPLITHUB_API_KEY.');
   return target as Target & { token: string };
 }
 
@@ -261,7 +261,7 @@ export type { RawResults, RawStatusRow };
 export type Analysis = RawResults['analysis'];
 export type Results = CloudResults | RawResults;
 export type StatusRow = CloudStatusRow | (RawStatusRow & { headline?: undefined; verdict?: undefined; sample?: undefined; stars?: undefined; daysToVerdict?: undefined; display?: undefined });
-/** One analytics property in `GET /v1/status` (sh2 Cloud): its last 7 days against the 7 before. */
+/** One analytics property in `GET /v1/status` (SplitHub Cloud): its last 7 days against the 7 before. */
 export interface StatusProperty {
   property: string;
   name: string;
@@ -277,14 +277,14 @@ export interface StatusProperty {
 export interface StatusData {
   project: string;
   experiments: StatusRow[];
-  /** sh2 Cloud: analytics properties (archived left out); older servers and self-hosted omit it. */
+  /** SplitHub Cloud: analytics properties (archived left out); older servers and self-hosted omit it. */
   properties?: StatusProperty[];
   propertiesRange?: { from: string; to: string };
   /** Present (available: false) on self-hosted endpoints. */
   analysis?: Analysis;
 }
 
-/** Self-hosted answers: counts only, the verdict comes with sh2 Cloud. */
+/** Self-hosted answers: counts only, the verdict comes with SplitHub Cloud. */
 export const isRawResults = (r: Results): r is RawResults => (r as { analysis?: { available?: boolean } }).analysis?.available === false;
 
 export const fetchStatus = (t: Target) => request<StatusData>(t, '/status');
@@ -300,7 +300,7 @@ export interface PlanResult {
   total: number;
 }
 
-/** GET /plan on sh2 Cloud: public, no API key needed. */
+/** GET /plan on SplitHub Cloud: public, no API key needed. */
 export const fetchPlan = (t: Target, q: { baseline: number; mde: number; variants: number }) =>
   request<PlanResult>({ url: t.url, cloud: true }, `/plan?${new URLSearchParams({ baseline: String(q.baseline), mde: String(q.mde), variants: String(q.variants) }).toString()}`);
 
@@ -310,7 +310,7 @@ export interface SkillFile {
   body: string;
 }
 
-/** GET /skills on sh2 Cloud; null on any error or after `timeoutMs`, so the caller uses the bundled copies. */
+/** GET /skills on SplitHub Cloud; null on any error or after `timeoutMs`, so the caller uses the bundled copies. */
 export async function fetchSkills(flags: Record<string, unknown>, timeoutMs = 1500): Promise<SkillFile[] | null> {
   try {
     const res = await fetch(`${cloudTarget(flags).url}/skills`, { signal: AbortSignal.timeout(timeoutMs) });

@@ -1,5 +1,5 @@
 // Notes, short links, alert rules and `analytics connect`: pure helpers, then the built CLI against a
-// fake sh2 Cloud that records every request.
+// fake SplitHub Cloud that records every request.
 import { execFile } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';

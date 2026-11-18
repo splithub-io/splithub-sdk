@@ -1,6 +1,6 @@
-# sh2 for iOS and macOS
+# SplitHub for iOS and macOS
 
-Experiments and analytics for Swift apps. You create experiments in the sh2
+Experiments and analytics for Swift apps. You create experiments in the SplitHub
 dashboard; the app picks a variant on the device, with no network call on render,
 and sends what people saw and did.
 
@@ -12,7 +12,7 @@ In Xcode: **File → Add Package Dependencies…** and paste the repository URL.
 Or in `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/splithub-io/splithub-sdk", from: "0.6.0")
+.package(url: "https://github.com/splithub-io/splithub-sdk", from: "0.6.1")
 ```
 
 Then add `SplitHub` to your target's dependencies.

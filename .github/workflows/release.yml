@@ -24,7 +24,7 @@ jobs:
               awk -v v="## $version" '$0 == v { on = 1; next } /^## / { on = 0 } on' CHANGELOG.md
               echo
             fi
-            echo "All sh2 packages are on npm at $version."
+            echo "All SplitHub packages are on npm at $version."
             echo
             echo '```bash'
             echo "npx splithub@$version init"
@@ -36,4 +36,4 @@ jobs:
               echo "| \`$name\` | [$version](https://www.npmjs.com/package/$name/v/$version) |"
             done
           } > notes.md
-          gh release create "$TAG" --title "sh2 SDK $version" --notes-file notes.md --verify-tag
+          gh release create "$TAG" --title "SplitHub SDK $version" --notes-file notes.md --verify-tag

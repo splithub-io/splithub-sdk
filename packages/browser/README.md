@@ -1,6 +1,6 @@
 # @splithub/browser
 
-sh2 for sites without a build step: one script tag counts pages and events and runs redirect experiments. Works on any site: plain HTML, WordPress, Webflow, a landing page builder.
+SplitHub for sites without a build step: one script tag counts pages and events and runs redirect experiments. Works on any site: plain HTML, WordPress, Webflow, a landing page builder.
 
 ```html
 <script src="https://go.sh2.uk/sh.js" data-key="pk_..." data-property="sh-x1h78w"></script>
@@ -13,7 +13,7 @@ sh2 for sites without a build step: one script tag counts pages and events and r
 
 ## What it does
 
-- **Analytics:** a pageview on load and on every client-side navigation, time on page and scroll depth. Sources, pages, funnels, paths and retention read them in sh2 Cloud.
+- **Analytics:** a pageview on load and on every client-side navigation, time on page and scroll depth. Sources, pages, funnels, paths and retention read them in SplitHub Cloud.
 - **Events:** `splithub.track(name, props?)`, any name. It counts in analytics and converts every experiment whose goal it is.
 - **Users:** `splithub.identify('user_42', { plan: 'pro' })` ties the visitor to your user; `identify(null)` on sign-out.
 - **Redirect experiments:** sends each visitor to their variant's page before the page paints, with the same assignment, targeting, layers and holdout as the SDK.

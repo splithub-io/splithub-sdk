@@ -1,5 +1,5 @@
 name: Idea
-description: Something sh2 should do that it doesn't yet.
+description: Something SplitHub should do that it doesn't yet.
 labels: [idea]
 body:
   - type: textarea

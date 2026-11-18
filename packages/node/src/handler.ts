@@ -31,7 +31,7 @@ export type FetchHandler = (request: Request) => Promise<Response>;
 
 /**
  * Largest ingest body accepted. The POST is public, so the cap applies before anything is
- * buffered; a full batch (500 events) is far smaller, and sh2 Cloud takes 256 KiB.
+ * buffered; a full batch (500 events) is far smaller, and SplitHub Cloud takes 256 KiB.
  */
 export const MAX_BODY_BYTES = 1024 * 1024;
 
@@ -71,7 +71,7 @@ async function readCapped(request: Request, max: number): Promise<string | null>
  *   GET  {base}/properties/:key            → one property's raw counts
  *   GET  {base}/properties/:key/events     → its latest raw pageviews and events (`?before=&limit=`)
  *
- * Reads are raw counts; verdicts and recommendations are sh2 Cloud's.
+ * Reads are raw counts; verdicts and recommendations are SplitHub Cloud's.
  *   GET  {base}/health         → { ok: true }
  *
  * Works in Next.js route handlers, Remix, Hono, Bun, Deno and Node (via `toNodeListener`).

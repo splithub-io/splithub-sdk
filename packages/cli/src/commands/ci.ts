@@ -29,10 +29,10 @@ function gitRoot(from: string): string {
 export function workflowTemplate(workingDirectory: string): string {
   const wd = workingDirectory === '' ? '.' : workingDirectory;
   const configGlob = wd === '.' ? 'splithub.config.*' : `${wd}/splithub.config.*`;
-  return `# sh2: checks experiments on pull requests that touch the config, and keeps
+  return `# SplitHub: checks experiments on pull requests that touch the config, and keeps
 # a results comment up to date on weekday mornings. Needs the SPLITHUB_API_KEY
 # secret (dashboard, Settings, API keys) for results and cloud comparisons.
-name: sh2
+name: SplitHub
 
 on:
   pull_request:
@@ -61,7 +61,7 @@ jobs:
       # check on a pull request (doctor + push --dry-run), report otherwise (results tables)
       MODE: \${{ github.event_name == 'pull_request' && 'check' || 'report' }}
       PR_NUMBER: \${{ github.event.pull_request.number }}
-      ISSUE_TITLE: sh2 results
+      ISSUE_TITLE: SplitHub results
       OUT: \${{ runner.temp }}/splithub
     steps:
       - uses: actions/checkout@v4
@@ -81,7 +81,7 @@ jobs:
           elif [ -f package-lock.json ]; then npm ci
           else npm install; fi
 
-      - name: Run sh2
+      - name: Run SplitHub
         id: run
         run: |
           mkdir -p "$OUT"
@@ -115,7 +115,7 @@ jobs:
           if (process.env.MODE === 'check') {
             const doctor = read('doctor.json');
             const push = read('push.json');
-            lines.push('### sh2 check', '');
+            lines.push('### SplitHub check', '');
             if (!doctor) lines.push('Doctor did not run.');
             else if (doctor.error) lines.push('✖ ' + doctor.error + hint(doctor));
             else {
@@ -138,7 +138,7 @@ jobs:
             }
           } else {
             const report = read('report.json');
-            lines.push(!report ? 'sh2 report did not run.' : report.error ? '### sh2\\n\\n' + report.error : report.markdown);
+            lines.push(!report ? 'SplitHub report did not run.' : report.error ? '### SplitHub\\n\\n' + report.error : report.markdown);
             lines.push('', '<sub>Updated ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC</sub>');
           }
           fs.writeFileSync(path.join(out, 'body.md'), '<!-- splithub:' + process.env.MODE + ' -->\\n' + lines.join('\\n') + '\\n');
@@ -152,7 +152,7 @@ jobs:
             number="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$ISSUE_TITLE in:title" --json number,title --jq '.[] | [.number, .title] | @tsv' | awk -F '\\t' -v t="$ISSUE_TITLE" '$2 == t { print $1; exit }')"
           fi
           if [ -z "$number" ]; then
-            url="$(gh issue create --repo "$GITHUB_REPOSITORY" --title "$ISSUE_TITLE" --body 'Experiment results from sh2, refreshed by the sh2 workflow.')"
+            url="$(gh issue create --repo "$GITHUB_REPOSITORY" --title "$ISSUE_TITLE" --body 'Experiment results from SplitHub, refreshed by the SplitHub workflow.')"
             number="\${url##*/}"
           fi
           id="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$number/comments" --jq '.[] | [.id, (.body | split("\\n") | .[0])] | @tsv' | awk -F '\\t' -v m="$marker" '$2 == m { print $1; exit }')"
@@ -165,7 +165,7 @@ jobs:
       - name: Fail on problems
         if: steps.run.outputs.ok != 'true' && env.MODE == 'check'
         run: |
-          echo "sh2 found problems: see the comment on the pull request."
+          echo "SplitHub found problems: see the comment on the pull request."
           exit 1
 `;
 }

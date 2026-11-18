@@ -1,6 +1,6 @@
 # @splithub/node
 
-Self-hosted ingest and results for sh2. One fetch-style handler that
+Self-hosted ingest and results for SplitHub. One fetch-style handler that
 works in Next.js route handlers, Remix, Hono, Bun, Deno and plain Node.
 
 ```ts
@@ -41,12 +41,12 @@ Reads return raw numbers from your own database:
   ],
   "metrics": [{ "metric": "refund", "role": "guardrail", "worse": "higher", "variants": [] }],
   "days": 6.2,
-  "analysis": { "available": false, "message": "Verdicts, stars and recommendations come with sh2 Cloud.", "url": "https://sh2.uk/cloud" }
+  "analysis": { "available": false, "message": "Verdicts, stars and recommendations come with SplitHub Cloud.", "url": "https://sh2.uk/cloud" }
 }
 ```
 
 The first variant is the control. `rawResults(config, store, id)` and `rawStatusTable(config, store)`
-give the same numbers in code. Verdicts, data-quality stars and recommendations come with sh2 Cloud.
+give the same numbers in code. Verdicts, data-quality stars and recommendations come with SplitHub Cloud.
 
 ## Apps
 

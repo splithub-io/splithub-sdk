@@ -10,7 +10,7 @@ export function configTemplate(project: string, mode: 'self' | 'cloud', key?: st
     : '';
   return `import { defineConfig } from '@splithub/core';
 
-// sh2 experiments. This file is the source of truth: the SDK, the CLI
+// SplitHub experiments. This file is the source of truth: the SDK, the CLI
 // and the dashboard all read it. Keys: lowercase a-z 0-9 - _. First variant = control.${appNote}
 export default defineConfig({
   project: '${project}',
@@ -87,9 +87,9 @@ export function ${name}() {
 }
 
 export const AGENTS_SECTION = `
-## A/B testing (sh2)
+## A/B testing (SplitHub)
 
-This project uses sh2 (\`@splithub/react\`). Experiments are declared in
+This project uses SplitHub (\`@splithub/react\`). Experiments are declared in
 \`splithub.config.ts\` and rendered with \`<Experiment id>\` / \`useVariant(id)\` /
 \`useValue(id)\`. Events: \`useTrack()\` then \`track('<event name>')\`; an experiment's goal is any event name.
 
@@ -104,9 +104,9 @@ This project uses sh2 (\`@splithub/react\`). Experiments are declared in
 - \`create\` writes \`status: 'running'\`: the experiment goes live when the code is deployed. Always tell the user that, and that
   \`npx splithub pause <id>\` or Pause in the dashboard holds it. Never change \`seed\` of a running experiment.
 - Analytics: set it up with \`npx splithub analytics connect --json\` (names the property on the provider), read it with
-  \`npx splithub analytics <property> --json\`; also \`funnel\`, \`paths\`, \`retention\`, \`realtime\`, \`export\` (sh2 Cloud).
+  \`npx splithub analytics <property> --json\`; also \`funnel\`, \`paths\`, \`retention\`, \`realtime\`, \`export\` (SplitHub Cloud).
   Details: .claude/skills/splithub-analytics/SKILL.md
-- Notes, alerts, links, domains (sh2 Cloud): \`npx splithub notes add "<what shipped>"\` when you ship, \`npx splithub alerts\` (rules, e.g.
+- Notes, alerts, links, domains (SplitHub Cloud): \`npx splithub notes add "<what shipped>"\` when you ship, \`npx splithub alerts\` (rules, e.g.
   \`alerts add usage --every 1000\`), \`npx splithub links\` (short links), \`npx splithub domains\`. Humans: \`npx splithub\` opens the menu.
 - Apps (React Native / Expo / iOS / Android): new experiments start in the dashboard (the config is built into the binary);
   screens are page events. Details: .claude/skills/splithub-apps/SKILL.md
@@ -117,7 +117,7 @@ export { SKILL_SPLITHUB as SKILL_MD } from './skills';
 import { SKILL_SPLITHUB } from './skills';
 
 export const CURSOR_RULE = `---
-description: sh2 A/B testing conventions
+description: SplitHub A/B testing conventions
 globs: ["splithub.config.ts", "splithub/**", "**/*.tsx"]
 alwaysApply: false
 ---

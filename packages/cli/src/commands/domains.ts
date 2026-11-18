@@ -5,7 +5,7 @@
 //   splithub domains set property <id> example.com     replace a property's list
 //   splithub domains clear test|property <id>          accept any origin again
 //
-// A test or property without domains accepts events from anywhere. sh2 Cloud only.
+// A test or property without domains accepts events from anywhere. SplitHub Cloud only.
 
 import { request, requireCloudToken } from '../api';
 import { fail, printJson } from '../errors';

@@ -1,4 +1,4 @@
-// `splithub results <id>`: one experiment. sh2 Cloud sends the verdict with ready-to-print
+// `splithub results <id>`: one experiment. SplitHub Cloud sends the verdict with ready-to-print
 // words (`display`, `voice`); this file only lays them out. A self-hosted endpoint sends raw counts.
 import { fetchResults, isRawResults, resolveTarget, type Analysis, type CloudResults, type RawResults, type Results, type Verdict } from '../api';
 import { fail, printJson } from '../errors';
@@ -62,7 +62,7 @@ function printRaw(r: RawResults): void {
   if (r.status === 'finished' && r.experiment !== HOLDOUT) console.log(c.dim(FINISHED_NEXT));
 }
 
-/** "Verdicts, stars and recommendations come with sh2 Cloud. https://…" */
+/** "Verdicts, stars and recommendations come with SplitHub Cloud. https://…" */
 export function analysisLine(a: Analysis): string {
   return `${a.message} ${a.url}`;
 }

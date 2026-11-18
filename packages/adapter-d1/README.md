@@ -1,6 +1,6 @@
 # @splithub/adapter-d1
 
-`Store` implementation on Cloudflare D1. Used by sh2 Cloud and by
+`Store` implementation on Cloudflare D1. Used by SplitHub Cloud and by
 self-hosters running the ingest handler on Workers.
 
 ```ts

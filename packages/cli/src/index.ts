@@ -24,7 +24,7 @@ Experiments
                                   --timeline (per day), --engagement (bounce, visit length per variant), --events (every goal and event
                                   per variant, lift vs control); --export with --by <dimension> or --events writes CSV
   splithub events --experiment <id>   latest raw events of an experiment (--type exposure|goal, --limit 50, --before <ms>, --from --to, --filter)
-  splithub plan                   visitors an experiment needs (asks sh2 Cloud, no account needed): --baseline 0.05 --mde 0.1 [--variants 2] [<id> for days at its traffic]
+  splithub plan                   visitors an experiment needs (asks SplitHub Cloud, no account needed): --baseline 0.05 --mde 0.1 [--variants 2] [<id> for days at its traffic]
   splithub refs <id>              files and lines that use the experiment and its goal
   splithub ship <id> --keep <v>   finish, remove from the config and rewrite the code to the kept variant (--dry-run shows the diff)
   splithub remove <id>            remove an experiment from the config (archived in the cloud when connected)
@@ -42,7 +42,7 @@ Analytics
   splithub analytics realtime|props|export <id>   visitors now; an event's props (--event <name> [--key <prop>]); CSV to stdout (--by <dimension>|day, --raw)
   splithub analytics segments     saved filters: --save <name> country=DE ..., --delete <id|name>; any report takes --segment <name>
 
-Notes, links, alerts, domains (sh2 Cloud)
+Notes, links, alerts, domains (SplitHub Cloud)
   splithub notes                  what happened on a day (--experiment <key> | --property <id>, --kind note|issue|win, --days 30)
   splithub notes add "<text>"     [--kind issue|win] [--experiment <key> | --property <id>] [--day YYYY-MM-DD]; notes edit <id> "<text>", notes delete <id>
   splithub links                  short links and their clicks; links <id|slug> for one link's clicks
@@ -55,7 +55,7 @@ Notes, links, alerts, domains (sh2 Cloud)
   splithub domains                which domains may send events, per experiment and property; domains set experiment|property <id> <domain...>, domains clear experiment|property <id>
 
 Project
-  splithub push [--dry-run]       upload splithub.config.ts to sh2 Cloud (--dry-run: check and show what would change)
+  splithub push [--dry-run]       upload splithub.config.ts to SplitHub Cloud (--dry-run: check and show what would change)
                                   experiments the cloud has that the file lacks are kept; --prune removes them
                                   a key that already belonged to another experiment stops the push: --replace <keys> (new experiment, old numbers cleared) or --same <keys> (same experiment, numbers stay)
   splithub pull                   show the config stored in the cloud
@@ -65,7 +65,7 @@ Project
   splithub doctor                 check the installation
   splithub update [--yes]         update splithub (and the project's @splithub/* packages) to the latest release; --json only reports
   splithub skills [--mcp]         install / refresh agent skills (library, A/B testing, analytics, apps, API, MCP, self-hosting, ship the winner, full loop); --mcp registers the MCP server
-  splithub login [--project <name|id>]   connect this directory to a sh2 Cloud project (sign-in link, no secrets typed)
+  splithub login [--project <name|id>]   connect this directory to a SplitHub Cloud project (sign-in link, no secrets typed)
   splithub projects               every directory connected on this machine and its project
   splithub whoami                 the project this directory is connected to
   splithub logout                 disconnect this directory

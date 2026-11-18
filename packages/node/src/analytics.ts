@@ -1,7 +1,7 @@
 // Raw reads of analytics properties for self-hosted stores. Pageviews and custom
 // events sit in the same events table as exposures and goals (`experiment` = the
 // property key, `goal` = the event name). Self-hosted answers are counts only;
-// reports with breakdowns, sessions, sources and conversions are sh2 Cloud's.
+// reports with breakdowns, sessions, sources and conversions are SplitHub Cloud's.
 
 import type { SplitHubConfig } from '@splithub/core';
 import type { SqlDialect } from './attribution';
@@ -26,7 +26,7 @@ export interface PropertySql {
   bind(values: Partial<Record<Param, unknown>>): unknown[];
 }
 
-/** The queries behind `propertyCounts` / `propertyEvents` for the sh2 table layout, on SQLite, D1, Postgres and MySQL. */
+/** The queries behind `propertyCounts` / `propertyEvents` for the SplitHub table layout, on SQLite, D1, Postgres and MySQL. */
 export function propertyCountsSql(options: PropertyCountsSqlOptions): { totals: PropertySql; events: PropertySql; rows: PropertySql } {
   const t = options.table ?? 'splithub_events';
   if (!IDENT.test(t)) throw new Error('[splithub] invalid table name');
@@ -133,7 +133,7 @@ export interface RawPropertyReport {
 
 export const PROPERTY_REPORTS_UNAVAILABLE = {
   ...ANALYSIS_UNAVAILABLE,
-  message: 'Reports with pages, sources, sessions and conversions come with sh2 Cloud.',
+  message: 'Reports with pages, sources, sessions and conversions come with SplitHub Cloud.',
 };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;

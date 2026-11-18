@@ -74,7 +74,7 @@ export interface ClientOptions {
   sdk?: string;
   /**
    * Send the cloud key as `?key=` so page-hide batches can use `navigator.sendBeacon`.
-   * On by default for sh2 Cloud (the key is public); off for a custom endpoint,
+   * On by default for SplitHub Cloud (the key is public); off for a custom endpoint,
    * which may not read the key from the query.
    */
   keyInQuery?: boolean;
@@ -501,8 +501,8 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
       claimed.add(prop);
       return true;
     }
-    if (typeof __SPLITHUB_LITE__ === 'undefined') devNote(`shared:${prop}`, `Another sh2 script on this page already collects pageviews for "${prop}", so this one leaves them to it. Keep one install per property: the SDK or sh.js.`);
-    hold(`s:${prop}`, 'pageview', `${prop}: pageviews left to the other sh2 script on this page`);
+    if (typeof __SPLITHUB_LITE__ === 'undefined') devNote(`shared:${prop}`, `Another SplitHub script on this page already collects pageviews for "${prop}", so this one leaves them to it. Keep one install per property: the SDK or sh.js.`);
+    hold(`s:${prop}`, 'pageview', `${prop}: pageviews left to the other SplitHub script on this page`);
     return false;
   };
 

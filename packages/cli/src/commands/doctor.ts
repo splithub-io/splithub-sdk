@@ -35,8 +35,8 @@ export async function doctor(flags: Flags): Promise<void> {
       }
     };
     const lines = nativeSetup(project.app, null);
-    if (nativeSdkInstalled(project.root, project.app, read)) add('ok', `app: ${project.app}, sh2 SDK in the build files`);
-    else add('error', `app: ${project.app}, sh2 SDK not found in the build files. Add it: ${lines.install.split('\n')[1]}`);
+    if (nativeSdkInstalled(project.root, project.app, read)) add('ok', `app: ${project.app}, SplitHub SDK in the build files`);
+    else add('error', `app: ${project.app}, SplitHub SDK not found in the build files. Add it: ${lines.install.split('\n')[1]}`);
     add('warn', 'app: create experiments in the dashboard; they reach installed apps through the cloud, no release needed');
     return report(checks, flags);
   }
@@ -116,7 +116,7 @@ export function appChecks(project: Pick<ProjectInfo, 'app' | 'deps'>, config: Pi
   for (const exp of config.experiments) {
     if (exp.kind === 'redirect') add('warn', `${exp.key}: redirect experiments change URLs, so they do nothing in an app. Use a value or component experiment.`);
   }
-  if (config.storage.mode === 'self') add('warn', 'app: self-hosted, so experiments only change with a store release (the config is built into the app). sh2 Cloud starts and changes them live.');
+  if (config.storage.mode === 'self') add('warn', 'app: self-hosted, so experiments only change with a store release (the config is built into the app). SplitHub Cloud starts and changes them live.');
   else add('warn', 'app: splithub.config.ts is frozen into the binary until the next store release. Create new experiments in the dashboard so installed apps get them now; push config changes too.');
 }
 

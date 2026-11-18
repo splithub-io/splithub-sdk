@@ -28,7 +28,7 @@ export interface StoredEvent {
   country?: string | null;
   device?: string | null;
   browser?: string | null;
-  /** Extra dimensions (sh2 Cloud, `d1Store({ meta: 'extended' })`): OS, language, geo, referrer, UTM. */
+  /** Extra dimensions (SplitHub Cloud, `d1Store({ meta: 'extended' })`): OS, language, geo, referrer, UTM. */
   os?: string | null;
   language?: string | null;
   city?: string | null;
@@ -80,7 +80,7 @@ export interface Store {
   close?(): Promise<void> | void;
 }
 
-/** Raw counts of one analytics property; aggregated reports are sh2 Cloud's. */
+/** Raw counts of one analytics property; aggregated reports are SplitHub Cloud's. */
 export interface PropertyCounts {
   pageviews: number;
   visitors: number;

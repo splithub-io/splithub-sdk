@@ -1,4 +1,4 @@
-// The menu's Links, Alerts and Notes steps (sh2 Cloud). Each step asks a few plain questions,
+// The menu's Links, Alerts and Notes steps (SplitHub Cloud). Each step asks a few plain questions,
 // then calls the same function as `splithub links|alerts|notes …`, so the output is what scripts see.
 import * as p from '@clack/prompts';
 import { request, requireCloudToken } from '../api';
@@ -12,7 +12,7 @@ import { notes, NOTE_KINDS, type Note } from './notes';
 export type PickExperiment = (flags: Flags, message: string) => Promise<string | null>;
 
 /** What the cloud-only menu items say in a self-hosted project. */
-export const CLOUD_ONLY_ITEM = (what: string) => `${what} come with sh2 Cloud. Run npx splithub init --mode cloud to connect this app.`;
+export const CLOUD_ONLY_ITEM = (what: string) => `${what} come with SplitHub Cloud. Run npx splithub init --mode cloud to connect this app.`;
 
 // ---------------------------------------------------------------------------
 // Alerts

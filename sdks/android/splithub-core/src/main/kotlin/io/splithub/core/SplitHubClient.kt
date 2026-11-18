@@ -57,7 +57,7 @@ class ClientOptions @JvmOverloads constructor(
 )
 
 /**
- * The sh2 client for apps, a port of `createClient` in @splithub/core with a platform
+ * The SplitHub client for apps, a port of `createClient` in @splithub/core with a platform
  * adapter: persistent visitor id, sessions that rotate after 30 minutes in the background,
  * experiments from the cloud's overrides JSON (cached, applied synchronously on the next
  * launch), screens as `page` events and a persisted offline queue.
@@ -66,7 +66,7 @@ class ClientOptions @JvmOverloads constructor(
  */
 class SplitHubClient(private val options: ClientOptions) {
     companion object {
-        const val VERSION = "0.6.0"
+        const val VERSION = "0.6.1"
         const val DEFAULT_ENDPOINT = "https://go.sh2.uk/v1/events"
         const val REMOTE_WAIT_MS = 400L
         const val PROPERTY_WAIT_MS = 5_000L

@@ -1,4 +1,4 @@
-// One experiment, read closer (sh2 Cloud only: a self-hosted endpoint keeps raw counts).
+// One experiment, read closer (SplitHub Cloud only: a self-hosted endpoint keeps raw counts).
 //
 //   splithub results <id> [--from --to] [--filter country=DE ...]   the verdict on a slice: first-exposure days, visitor filters
 //   splithub results <id> --by <dimension>                           every segment's variants against the control there

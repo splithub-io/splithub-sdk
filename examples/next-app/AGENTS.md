@@ -1,8 +1,8 @@
 # example-next-app
 
-## A/B testing (sh2)
+## A/B testing (SplitHub)
 
-This project uses sh2 (`@splithub/react`). Experiments are declared in
+This project uses SplitHub (`@splithub/react`). Experiments are declared in
 `splithub.config.ts` and rendered with `<Experiment id>` / `useVariant(id)` /
 `useValue(id)`. Conversions: `useTrack()` then `track('<goal>')`.
 

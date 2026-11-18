@@ -152,7 +152,7 @@ async function cloudFetch(url: string, init: RequestInit): Promise<Response> {
 }
 
 /**
- * `splithub push`: upload the normalized splithub.config.ts to sh2 Cloud.
+ * `splithub push`: upload the normalized splithub.config.ts to SplitHub Cloud.
  * Needs a project API key (sk_...) via --token or SPLITHUB_API_KEY. The first
  * push returns the public key (pk_...) which is written into the config's
  * `storage.key` when it is still empty. `--dry-run` only checks and compares.
@@ -164,7 +164,7 @@ export async function push(flags: Flags): Promise<void> {
   const config = await loadConfig(project.configFile);
   if (flags['dry-run']) return dryRun(flags, config);
   if (config.storage.mode !== 'cloud') {
-    fail('NOT_CLOUD', `This project stores events itself (storage.mode is "${config.storage.mode}"), so there's nothing to push.`, "Set storage: { mode: 'cloud' } in splithub.config.ts to use sh2 Cloud.");
+    fail('NOT_CLOUD', `This project stores events itself (storage.mode is "${config.storage.mode}"), so there's nothing to push.`, "Set storage: { mode: 'cloud' } in splithub.config.ts to use SplitHub Cloud.");
   }
   const target = requireCloudToken(flags);
 
