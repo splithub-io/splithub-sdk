@@ -13,14 +13,14 @@ npx splithub create --kind value --id hero-title --variants control,direct \
 npx splithub start hero-title            # also: pause, finish
 npx splithub status                      # all experiments, verdict headline
 npx splithub results hero-title          # cloud: verdict, lift, P(beat), p-value, CI; self-hosted: raw numbers
-npx splithub plan --baseline 0.05 --mde 0.1   # visitors a test needs (asks SplitHub Cloud, no account needed)
+npx splithub plan --baseline 0.05 --mde 0.1   # visitors a test needs (asks sh2 Cloud, no account needed)
 npx splithub report                      # Markdown for a PR comment (the `ci init` workflow posts it)
 npx splithub doctor                      # checks config, provider, middleware, route, code references, endpoint (apps: SDK, storage)
 npx splithub ship hero-title --keep direct    # keep the winner in your code, remove the experiment
 npx splithub ci init                     # GitHub workflow: checks on PRs, results as a PR comment
 ```
 
-Results go deeper in SplitHub Cloud: `--by country` (lift per segment), `--timeline`, `--events` (every event
+Results go deeper in sh2 Cloud: `--by country` (lift per segment), `--timeline`, `--events` (every event
 per variant), `--filter device=mobile --from 2026-10-01` (a slice), `--export` for CSV.
 
 ## Analytics
@@ -62,16 +62,16 @@ npx splithub domains set property sh-x1h78w example.com             # only these
 | Config `storage.mode` | `status` / `results` read from | Auth |
 |---|---|---|
 | `self` | your app's endpoint on the local dev server (`localhost:3000` for Next.js, `5173` for Vite) or `--url` / `SPLITHUB_URL` | `--token` / `SPLITHUB_ADMIN_TOKEN` when the handler has `adminToken` |
-| `cloud` | `https://go.splithub.io/v1` (or `--api` / `SPLITHUB_API`) | project API key: `--token sk_...`, `SPLITHUB_API_KEY`, or the key saved by `splithub login` |
+| `cloud` | `https://go.sh2.uk/v1` (or `--api` / `SPLITHUB_API`) | project API key: `--token sk_...`, `SPLITHUB_API_KEY`, or the key saved by `splithub login` |
 
 Self-hosted reads are raw numbers: visitors, conversions, rate and revenue per variant, and counts of
 pages and events per property. Verdicts, data-quality stars, recommendations, sample-size planning and the
-analytics reports (funnels, paths, retention, segments) run in SplitHub Cloud.
+analytics reports (funnels, paths, retention, segments) run in sh2 Cloud.
 
-`init` and `skills` fetch the latest agent skills from SplitHub Cloud and fall back to the copies
+`init` and `skills` fetch the latest agent skills from sh2 Cloud and fall back to the copies
 bundled with the CLI when it can't be reached.
 
-## SplitHub Cloud
+## sh2 Cloud
 
 ```bash
 npx splithub login                       # prints a code + URL; approve in the dashboard, pick the project

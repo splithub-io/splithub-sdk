@@ -1,6 +1,6 @@
 # @splithub/core
 
-Framework-agnostic core of SplitHub: `defineConfig`, deterministic assignment
+Framework-agnostic core of sh2: `defineConfig`, deterministic assignment
 (MurmurHash3), visitor id, event queue and a tiny client.
 
 ```ts

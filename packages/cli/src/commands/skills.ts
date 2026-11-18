@@ -1,8 +1,8 @@
 // `splithub skills [--mcp] [--force]`: install or refresh the agent skills in
 // this project (.claude/skills/<name>/SKILL.md, .cursor/rules/splithub.mdc,
-// an AGENTS.md section) and, with --mcp, register the SplitHub MCP server in
+// an AGENTS.md section) and, with --mcp, register the sh2 MCP server in
 // .mcp.json (Claude Code) and .cursor/mcp.json (Cursor). `init` calls this too.
-// The text comes from SplitHub Cloud (GET /v1/skills) so it updates with a deploy;
+// The text comes from sh2 Cloud (GET /v1/skills) so it updates with a deploy;
 // the copies bundled here are the offline fallback.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -17,7 +17,7 @@ export interface SkillsResult {
   written: string[];
   skipped: string[];
   mcp: string[];
-  /** Where the text came from: SplitHub Cloud, or the copies bundled with the CLI. */
+  /** Where the text came from: sh2 Cloud, or the copies bundled with the CLI. */
   source: 'cloud' | 'bundled';
 }
 
@@ -31,7 +31,7 @@ export const BUNDLED_SKILL_FILES: SkillFile[] = [
 /** Only where skills belong: a server answer never writes anywhere else in the project. */
 const SAFE_PATH = /^(\.claude\/skills\/[a-z0-9][a-z0-9-]*\/SKILL\.md|\.cursor\/rules\/[a-z0-9][a-z0-9-]*\.mdc|AGENTS\.md)$/;
 
-/** Fresh text from SplitHub Cloud (1.5 s at most), else the bundled copies. */
+/** Fresh text from sh2 Cloud (1.5 s at most), else the bundled copies. */
 export async function loadSkillFiles(flags: Record<string, unknown> = {}): Promise<{ files: SkillFile[]; source: 'cloud' | 'bundled' }> {
   const remote = (await fetchSkills(flags))?.filter((f) => SAFE_PATH.test(f.path));
   return remote?.length ? { files: remote, source: 'cloud' } : { files: BUNDLED_SKILL_FILES, source: 'bundled' };
@@ -45,7 +45,7 @@ function writeFile(file: string, content: string, force: boolean, out: SkillsRes
       return;
     }
     // Skills we wrote earlier get refreshed; a user-edited file is left alone unless --force.
-    if (!/SplitHub|splithub/.test(current)) {
+    if (!/SplitHub|splithub|\bsh2\b/.test(current)) {
       out.skipped.push(file);
       return;
     }
@@ -88,7 +88,7 @@ export function installSkills(root: string, options: { mcp?: boolean; force?: bo
     writeFileSync(agentsFile, `# ${detectProject(root).name}
 ${section}`, 'utf8');
     out.written.push(agentsFile);
-  } else if (!/SplitHub/.test(readFileSync(agentsFile, 'utf8'))) {
+  } else if (!/SplitHub|\bsh2\b/.test(readFileSync(agentsFile, 'utf8'))) {
     writeFileSync(agentsFile, readFileSync(agentsFile, 'utf8') + `
 ${section}`, 'utf8');
     out.written.push(`${agentsFile} (section appended)`);
@@ -114,7 +114,7 @@ export async function skills(flags: Flags): Promise<void> {
   if (result.written.length) console.log(`${c.green('✔')} wrote\n  ${result.written.map(rel).join('\n  ')}`);
   if (result.mcp.length) console.log(`${c.green('✔')} MCP server registered in\n  ${result.mcp.map(rel).join('\n  ')}`);
   if (result.skipped.length) console.log(c.dim(`unchanged: ${result.skipped.map(rel).join(', ')}`));
-  if (result.source === 'bundled') console.log(c.dim("couldn't reach SplitHub Cloud, so these are the copies bundled with this CLI"));
-  if (!flags.mcp) console.log(c.dim(`add --mcp to register the SplitHub MCP server (Claude Code .mcp.json, Cursor .cursor/mcp.json; Codex and Copilot read AGENTS.md)`));
+  if (result.source === 'bundled') console.log(c.dim("couldn't reach sh2 Cloud, so these are the copies bundled with this CLI"));
+  if (!flags.mcp) console.log(c.dim(`add --mcp to register the sh2 MCP server (Claude Code .mcp.json, Cursor .cursor/mcp.json; Codex and Copilot read AGENTS.md)`));
   console.log(c.dim('skills: splithub (library + CLI), ab-testing (how to run experiments well), splithub-analytics (pageviews, events, reports), splithub-api (HTTP API), splithub-mcp (MCP tools), splithub-self-hosted (your own database), splithub-ship (keep the winner, remove the experiment), splithub-loop (the whole loop, tool by tool)'));
 }

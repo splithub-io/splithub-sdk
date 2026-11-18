@@ -1,6 +1,6 @@
 {
   "name": "@splithub/react-native",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "A/B testing and analytics for React Native and Expo apps on iOS and Android: show a variant, track screens and events, works offline.",
   "keywords": [
     "splithub",
@@ -29,7 +29,7 @@
     "url": "git+https://github.com/splithub-io/splithub-sdk.git",
     "directory": "packages/react-native"
   },
-  "homepage": "https://splithub.io",
+  "homepage": "https://sh2.uk",
   "bugs": {
     "url": "https://github.com/splithub-io/splithub-sdk/issues"
   },

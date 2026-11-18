@@ -63,7 +63,7 @@ describe('createSplitHubHandler', () => {
     expect(bold.rate).toBeGreaterThan(body.variants[0]!.rate);
     expect(bold.revenue).toBe(bold.conversions * 10);
     expect(body.days).toBeGreaterThan(7);
-    expect(body.analysis).toEqual({ available: false, message: 'Verdicts, stars and recommendations come with SplitHub Cloud.', url: 'https://splithub.io/cloud' });
+    expect(body.analysis).toEqual({ available: false, message: 'Verdicts, stars and recommendations come with sh2 Cloud.', url: 'https://sh2.uk/cloud' });
     expect(body.verdict).toBeUndefined();
     const statusBody = (await (await handler(new Request('http://x/api/splithub/status'))).json()) as { experiments: Array<Record<string, unknown>>; analysis: { available: boolean } };
     expect(statusBody.analysis.available).toBe(false);

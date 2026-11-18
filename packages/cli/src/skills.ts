@@ -17,14 +17,14 @@ export interface Skill {
 
 export const SKILL_SPLITHUB = `---
 name: splithub
-description: Add, change, run or read experiments in an app that uses SplitHub (@splithub/react, splithub.config.ts, the splithub CLI, SplitHub Cloud). Use when the user asks to A/B test a component, headline, image, price, CTA or page, asks which variant is winning, or wants to start, pause or finish an experiment; also for notes on the charts, alert rules (events used, traffic, goals, winners), short links and allowed domains.
+description: Add, change, run or read experiments in an app that uses sh2 (@splithub/react, splithub.config.ts, the splithub CLI, sh2 Cloud). Use when the user asks to A/B test a component, headline, image, price, CTA or page, asks which variant is winning, or wants to start, pause or finish an experiment; also for notes on the charts, alert rules (events used, traffic, goals, winners), short links and allowed domains.
 ---
 
-# SplitHub for coding agents
+# sh2 for coding agents
 
 Three pieces: \`splithub.config.ts\` (the experiments; source of truth when it exists),
 \`@splithub/react\` (renders variants), the \`splithub\` CLI (creates, pushes, reads results).
-Events go to the app's own database (self mode) or to SplitHub Cloud (cloud mode).
+Events go to the app's own database (self mode) or to sh2 Cloud (cloud mode).
 
 ## Where things live
 
@@ -55,7 +55,7 @@ Events go to the app's own database (self mode) or to SplitHub Cloud (cloud mode
 |---|---|---|---|
 | \`value\` | only data changes: text, number, image URL, price, JSON. The default choice: no new components. | \`--variants control,bold --value control="Old text" --value bold="New text"\` | \`const text = useValue<string>('<id>')\`; server components: \`getValue\` from \`@splithub/next\`; no SDK: \`sh.value('<id>')\` |
 | \`component\` | structure changes: a layout, a section, a flow, a different component per variant | \`--variants control,bold\` (the CLI scaffolds \`splithub/<id>/<Variant>.tsx\` stubs) | \`<Experiment id="<id>"><Variant name="control">…</Variant><Variant name="bold">…</Variant></Experiment>\`, or \`useVariant('<id>')\` in a switch |
-| \`redirect\` | a whole page changes: another URL per variant | \`--match / --to control=/ --to v2=/home-v2\` | nothing: \`@splithub/next\` middleware or the drop-in script \`<script src="https://go.splithub.io/sh.js" data-key="pk_…">\` sends visitors there |
+| \`redirect\` | a whole page changes: another URL per variant | \`--match / --to control=/ --to v2=/home-v2\` | nothing: \`@splithub/next\` middleware or the drop-in script \`<script src="https://go.sh2.uk/sh.js" data-key="pk_…">\` sends visitors there |
 | \`mvt\` | several things change at once (headline × button × image) and the user wants to know which of them matters; every combination is tested and each factor is read on its own | \`--factor headline=old:"Old text",new:"New text" --factor button=blue:#2563eb,green:#16a34a\` (no \`--variants\`; first level = control; at most 4 factors × 4 levels, 16 combinations) | \`const { headline, button } = useValue<{ headline: string; button: string }>('<id>')\` |
 
 mvt needs more visitors than a two-variant experiment: every combination must reach the minimum on its own (the results show the
@@ -104,7 +104,7 @@ visitors; \`create --good-sample\`); say it next to the verdict. \`verdict.sampl
 \`verdict.sample.checks[]\`: report the stars and the unmet labels; they never override the verdict. \`daysToVerdict\` says when to look again.
 Never declare a winner from raw rates. \`srm_detected\` means the split is broken: fix the setup before anything else.
 
-### Slices, breakdowns, timelines (SplitHub Cloud)
+### Slices, breakdowns, timelines (sh2 Cloud)
 
 - A slice: \`npx splithub results <id> --from 2026-10-01 --to 2026-10-15 --filter country=DE --filter channel="Paid Search" --json\`.
   \`from\` / \`to\` are first-exposure days (project time zone): the visitors who entered the experiment then, with all their
@@ -140,7 +140,7 @@ Whenever you see an experiment with \`status: finished\` (in \`status\`, \`resul
 
 A \`paused\` experiment is not over: say so and ask whether to resume (\`start\`) or finish it.
 
-## Around experiments (SplitHub Cloud)
+## Around experiments (sh2 Cloud)
 
 - **Notes**: what happened on a day, marked on experiment timelines and analytics charts. \`npx splithub notes add "Launched the
   new pricing page" [--kind note|issue|win] [--experiment <key> | --property <id>] [--day 2026-10-05]\` (none = the whole
@@ -225,12 +225,12 @@ SRM = the split differs from the configured weights · guardrail = a metric that
 
 export const SKILL_SPLITHUB_API = `---
 name: splithub-api
-description: Use the SplitHub Cloud HTTP API directly: public key event ingest, API-key endpoints for config, status, results, overrides, analytics reports, notes, short links and alert rules. Use when writing a server, a script, a non-JS client, or when the CLI is not available.
+description: Use the sh2 Cloud HTTP API directly: public key event ingest, API-key endpoints for config, status, results, overrides, analytics reports, notes, short links and alert rules. Use when writing a server, a script, a non-JS client, or when the CLI is not available.
 ---
 
-# SplitHub Cloud API
+# sh2 Cloud API
 
-Base URL: \`https://go.splithub.io\`. JSON in, JSON out (no envelope under \`/v1/*\`). Two credentials:
+Base URL: \`https://go.sh2.uk\`. JSON in, JSON out (no envelope under \`/v1/*\`). Two credentials:
 
 - **Public key \`pk_…\`**: identifies the project to browsers and SDKs. Safe to ship. Can only send events and read
   the public overrides JSON.
@@ -284,7 +284,7 @@ Server-side sending: a key with \`events:write\` can post to \`POST /v1/events\`
 so there is no origin check; keep it on the server.
 
 \`\`\`bash
-curl -X POST https://go.splithub.io/v1/events \\
+curl -X POST https://go.sh2.uk/v1/events \\
   -H "Authorization: Bearer $SPLITHUB_API_KEY" -H "Content-Type: application/json" \\
   -d '{ "sdk": "server/1.0", "events": [
     { "id": "g_order_1042", "type": "goal", "goal": "purchase", "vid": "v_abc", "ts": 1760000010000, "props": { "revenue": 49 } },
@@ -361,7 +361,7 @@ Scripts should prefer the API-key endpoints above; the session ones exist for th
 
 ## Drop-in script (no SDK)
 
-\`<script src="https://go.splithub.io/sh.js" data-key="pk_live_…"></script>\` in \`<head>\`: redirect experiments, page-visit and
+\`<script src="https://go.sh2.uk/sh.js" data-key="pk_live_…"></script>\` in \`<head>\`: redirect experiments, page-visit and
 click goals from the cloud config, \`window.splithub.track(name, props)\` for every event (goals included), pageviews
 for analytics properties (\`data-property="site"\`). An app with the SDK does not need it: one install per property,
 or only the first of the two collects pageviews.
@@ -375,10 +375,10 @@ or only the first of the two collects pageviews.
 
 export const SKILL_SPLITHUB_MCP = `---
 name: splithub-mcp
-description: Use or set up the SplitHub MCP server (@splithub/mcp) so an agent can create experiments, read verdicts, start/pause/finish experiments and push config through tools instead of shelling out, plus analytics, notes, alerts and short links. Use when the user asks to connect SplitHub to Claude Code, Cursor, Codex or another MCP client.
+description: Use or set up the sh2 MCP server (@splithub/mcp) so an agent can create experiments, read verdicts, start/pause/finish experiments and push config through tools instead of shelling out, plus analytics, notes, alerts and short links. Use when the user asks to connect sh2 to Claude Code, Cursor, Codex or another MCP client.
 ---
 
-# SplitHub MCP server
+# sh2 MCP server
 
 \`@splithub/mcp\` is a stdio MCP server that wraps the \`splithub\` CLI for the current project folder.
 Same credentials and config file as the CLI; nothing extra to configure.

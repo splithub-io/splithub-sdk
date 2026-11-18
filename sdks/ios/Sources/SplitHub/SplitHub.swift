@@ -20,8 +20,8 @@ import AppKit
 /// `Options.waitMs` for them and shows the control meanwhile.
 public final class SplitHub: ObservableObject {
     public static let shared = SplitHub()
-    public static let version = "0.5.1"
-    public static let defaultEndpoint = URL(string: "https://go.splithub.io/v1/events")!
+    public static let version = "0.6.0"
+    public static let defaultEndpoint = URL(string: "https://go.sh2.uk/v1/events")!
 
     public struct Options {
         /// First launch, nothing cached yet: how long to wait for the dashboard's experiments before showing the control. 0 decides at once.

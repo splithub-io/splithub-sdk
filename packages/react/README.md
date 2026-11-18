@@ -4,7 +4,7 @@ Experiments and web analytics for React apps, built for teams that ship with
 coding agents. Variants are decided before the first paint (no flicker),
 assignment is a local hash (no network call on render), one `track()` feeds
 both the analytics reports and your experiments, and events go either to your
-own database or to SplitHub Cloud.
+own database or to sh2 Cloud.
 
 Building a React Native or Expo app? Use `@splithub/react-native`: the same
 components and hooks, with storage, screens and offline events for apps.
@@ -93,7 +93,7 @@ on route change.
 
 Name an analytics property on the provider and every page and `track()` call
 is counted too: traffic, sources, pages, events, goals, funnels, paths and
-retention in SplitHub Cloud. `npx splithub analytics connect` creates the
+retention in sh2 Cloud. `npx splithub analytics connect` creates the
 property and writes its id here.
 
 ```tsx
@@ -124,11 +124,11 @@ export const GET = handler;
 ```
 
 **Cloud:** set `storage: { mode: 'cloud', key: 'pk_...' }` and nothing else.
-Verdicts, data-quality stars and recommendations come with SplitHub Cloud.
+Verdicts, data-quality stars and recommendations come with sh2 Cloud.
 
 ## 5. Read results
 
-With SplitHub Cloud:
+With sh2 Cloud:
 
 ```bash
 npx splithub status                 # every experiment with a verdict headline

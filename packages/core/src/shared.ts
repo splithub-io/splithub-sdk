@@ -1,4 +1,4 @@
-// One page may run two SplitHub clients: sh.js and the SDK, or two providers. Both may name
+// One page may run two sh2 clients: sh.js and the SDK, or two providers. Both may name
 // the same analytics property, and both would send every pageview, time on page and identify.
 // The first client to collect a property for an endpoint owns it; the other skips page
 // collection (its track() calls still go out, one row each). The registry sits on a global

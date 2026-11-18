@@ -1,7 +1,7 @@
 {
   "name": "@splithub/next",
-  "version": "0.5.1",
-  "description": "SplitHub for Next.js: experiments and analytics with middleware, server components, redirect experiments and the route for your own database.",
+  "version": "0.6.0",
+  "description": "sh2 for Next.js: experiments and analytics with middleware, server components, redirect experiments and the route for your own database.",
   "keywords": [
     "splithub",
     "ab-testing",
@@ -27,7 +27,7 @@
     "url": "git+https://github.com/splithub-io/splithub-sdk.git",
     "directory": "packages/next"
   },
-  "homepage": "https://splithub.io",
+  "homepage": "https://sh2.uk",
   "bugs": {
     "url": "https://github.com/splithub-io/splithub-sdk/issues"
   },

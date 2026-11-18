@@ -1,6 +1,6 @@
 {
   "name": "@splithub/react",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "A/B testing and web analytics in React: show a variant, track any event, identify users. No flicker, nothing fetched on render. For React Native and Expo, see @splithub/react-native.",
   "keywords": [
     "splithub",
@@ -26,7 +26,7 @@
     "url": "git+https://github.com/splithub-io/splithub-sdk.git",
     "directory": "packages/react"
   },
-  "homepage": "https://splithub.io",
+  "homepage": "https://sh2.uk",
   "bugs": {
     "url": "https://github.com/splithub-io/splithub-sdk/issues"
   },

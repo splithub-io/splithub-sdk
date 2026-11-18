@@ -61,7 +61,7 @@ describe('remote overrides on the web', () => {
     const cloud = defineConfig({ project: 'p', storage: { mode: 'cloud', key: 'pk_web' }, experiments: {} });
     const client = createClient(cloud, { transport: { send: () => undefined } });
     await client.ready;
-    expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toBe('https://go.splithub.io/v1/overrides/pk_web.json');
+    expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toBe('https://go.sh2.uk/v1/overrides/pk_web.json');
     expect(localStorage.getItem('sh_remote:pk_web')).not.toBeNull();
     expect(localStorage.getItem('sh_remote:pk_web:all')).toBeNull();
     client.destroy();

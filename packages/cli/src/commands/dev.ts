@@ -33,7 +33,7 @@ export async function dev(flags: Record<string, unknown>): Promise<void> {
   u.searchParams.set('sh_debug', flags.hold ? 'hold' : '1');
   const link = u.toString();
 
-  console.log(`${c.bold('SplitHub dev mode')}\n`);
+  console.log(`${c.bold('sh2 dev mode')}\n`);
   console.log(`  ${c.cyan(link)}\n`);
   console.log(c.dim('  In the browser: the console shows every assignment (variant + reason), exposure and goal; the panel'));
   console.log(c.dim('  in the corner forces variants, starts a new visitor and can hold redirects. Add ?sh_debug=0 to stop.\n'));

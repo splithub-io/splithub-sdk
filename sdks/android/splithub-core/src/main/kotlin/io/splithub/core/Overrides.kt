@@ -33,7 +33,7 @@ data class RemoteOverrides(
 
 object Overrides {
     /**
-     * `https://go.splithub.io/v1/events` -> `https://go.splithub.io/v1/overrides/<pk>.json?all=1`.
+     * `https://go.sh2.uk/v1/events` -> `https://go.sh2.uk/v1/overrides/<pk>.json?all=1`.
      * `all=1`: an app has no config file, so it also asks for the experiments pushed from `splithub.config.ts`.
      */
     @JvmStatic

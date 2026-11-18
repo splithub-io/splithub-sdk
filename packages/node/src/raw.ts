@@ -3,11 +3,11 @@ import type { ExperimentSummary, Store, StoreVariantCounts } from './store';
 
 const DAY_MS = 86_400_000;
 
-/** Self-hosted reads give counts; verdicts and recommendations are computed by SplitHub Cloud. */
+/** Self-hosted reads give counts; verdicts and recommendations are computed by sh2 Cloud. */
 export const ANALYSIS_UNAVAILABLE = {
   available: false as const,
-  message: 'Verdicts, stars and recommendations come with SplitHub Cloud.',
-  url: 'https://splithub.io/cloud',
+  message: 'Verdicts, stars and recommendations come with sh2 Cloud.',
+  url: 'https://sh2.uk/cloud',
 };
 
 export interface RawVariant {

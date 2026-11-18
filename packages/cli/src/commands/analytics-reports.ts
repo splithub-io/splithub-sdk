@@ -1,5 +1,5 @@
 // Analytics reports past the summary and breakdowns, plus what people save around them.
-// SplitHub Cloud only: a self-hosted endpoint answers raw counts (`splithub analytics <id>`).
+// sh2 Cloud only: a self-hosted endpoint answers raw counts (`splithub analytics <id>`).
 //
 //   splithub analytics funnel <id> --steps "page:/,event:Signup,goal:paid" | --funnel <name|id> [--within visit|7d|30d] [--by <dimension>]
 //   splithub analytics funnels <id> | --save <name> --steps "..." [--within 7d] | --delete <id|name>
@@ -118,8 +118,8 @@ export function cloudOnly(flags: Flags, what: string, report = true, rawHint = '
   if (t.cloud) return t;
   const explicit = (typeof flags.url === 'string' && flags.url) || process.env.SPLITHUB_URL;
   if (!project.configFile && !explicit) return requireCloudToken(flags);
-  if (!report) return fail('NOT_CLOUD', `${what} come with SplitHub Cloud.`, 'Connect this app with npx splithub init --mode cloud (or npx splithub login).');
-  return fail('NOT_CLOUD', `${what} come with SplitHub Cloud: a self-hosted endpoint keeps raw counts only.`, rawHint);
+  if (!report) return fail('NOT_CLOUD', `${what} come with sh2 Cloud.`, 'Connect this app with npx splithub init --mode cloud (or npx splithub login).');
+  return fail('NOT_CLOUD', `${what} come with sh2 Cloud: a self-hosted endpoint keeps raw counts only.`, rawHint);
 }
 
 const head = (key: string, parts: string[]) => console.log(`${c.bold(key)} ${c.dim(`· ${parts.join(' · ')}`)}\n`);

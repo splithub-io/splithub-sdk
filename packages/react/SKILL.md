@@ -3,9 +3,9 @@ name: splithub
 description: Add, change or read A/B experiments in a React app that uses @splithub/react. Use when the user asks to A/B test a component, headline, image, price, CTA or page, or asks which variant is winning.
 ---
 
-# SplitHub for coding agents
+# sh2 for coding agents
 
-SplitHub experiments live in `splithub.config.ts` (source of truth) and are
+sh2 experiments live in `splithub.config.ts` (source of truth) and are
 rendered with `<Experiment>` / `useVariant` / `useValue` from `@splithub/react`.
 Results are read with `npx splithub results <id> --json`.
 

@@ -112,7 +112,7 @@ describe('splithub results: a slice', () => {
     expect(calls).toEqual([]);
   });
 
-  it('says slices come with SplitHub Cloud on a self-hosted project, and keeps raw results there', async () => {
+  it('says slices come with sh2 Cloud on a self-hosted project, and keeps raw results there', async () => {
     dir = join(root, 'self');
     await expect(results('hero', { from: '2026-10-01' })).rejects.toMatchObject({ code: 'NOT_CLOUD', hint: 'Read the raw counts with npx splithub results <id>.' });
     await expect(results('hero', { by: 'country' })).rejects.toMatchObject({ code: 'NOT_CLOUD' });

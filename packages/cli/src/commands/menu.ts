@@ -62,13 +62,13 @@ export function menuOptions(s: MenuState): Array<Option<Action>> {
       { value: 'exit', label: 'Exit' },
     ];
   const cloud = s.mode === 'cloud';
-  const later = 'with SplitHub Cloud';
+  const later = 'with sh2 Cloud';
   return [
     ...(cloud && !s.connected
       ? [
           {
             value: 'login' as const,
-            label: 'Connect to SplitHub Cloud',
+            label: 'Connect to sh2 Cloud',
             hint: 'opens a sign-in link',
           },
         ]
@@ -124,7 +124,7 @@ export function menuOptions(s: MenuState): Array<Option<Action>> {
   ];
 }
 
-/** Options of the Experiments submenu. Slices, breakdowns, timelines and raw events come with SplitHub Cloud. */
+/** Options of the Experiments submenu. Slices, breakdowns, timelines and raw events come with sh2 Cloud. */
 export function experimentOptions(mode: 'cloud' | 'self' = 'cloud'): Array<Option<ExperimentAction>> {
   const cloud: Array<Option<ExperimentAction>> = [
     { value: 'filtered', label: 'Results with filters or dates', hint: 'first-seen days, country, device, source' },

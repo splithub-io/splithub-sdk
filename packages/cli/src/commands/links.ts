@@ -1,4 +1,4 @@
-// splithub links — short links on SplitHub Cloud: one short URL, one or more destinations split
+// splithub links — short links on sh2 Cloud: one short URL, one or more destinations split
 // by weight (split visitors between landing pages without code), clicks counted per destination.
 //
 //   splithub links                                         every link with its clicks

@@ -223,7 +223,7 @@ describe('remote overrides on apps', () => {
     await client.ready;
     expect(client.assignment('onboarding').reason).toBe('assigned'); // made in the dashboard, no release
     // No config file on a device: it asks for the experiments pushed from splithub.config.ts too.
-    expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toBe('https://go.splithub.io/v1/overrides/pk_app.json?all=1');
+    expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toBe('https://go.sh2.uk/v1/overrides/pk_app.json?all=1');
     expect(JSON.parse(storage.getItem(`${REMOTE_CACHE_KEY}:pk_app:all`)!).overrides.version).toBe(7);
     client.destroy();
   });

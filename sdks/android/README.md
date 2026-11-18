@@ -1,4 +1,4 @@
-# SplitHub for Android
+# sh2 for Android
 
 Experiments and analytics for native Android apps, in Kotlin. A visitor gets the same variant here as on your website, because assignment is the same hash as `@splithub/core`.
 
@@ -7,9 +7,9 @@ Experiments and analytics for native Android apps, in Kotlin. A visitor gets the
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("io.splithub:splithub:0.5.1")
+    implementation("io.splithub:splithub:0.6.0")
     // Optional: Jetpack Compose helpers
-    implementation("io.splithub:splithub-compose:0.5.1")
+    implementation("io.splithub:splithub-compose:0.6.0")
 }
 ```
 

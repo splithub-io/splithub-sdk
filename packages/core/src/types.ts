@@ -1,5 +1,5 @@
 /**
- * SplitHub configuration types. `splithub.config.ts` is the single source of
+ * sh2 configuration types. `splithub.config.ts` is the single source of
  * truth for experiments: the SDK, the CLI, the self-hosted handler and the
  * cloud all read the same object.
  */

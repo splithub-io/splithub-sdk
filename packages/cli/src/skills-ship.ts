@@ -47,7 +47,7 @@ Report what changed (files, the kept content) and the verdict in one line with i
 
 export const SKILL_LOOP = `---
 name: splithub-loop
-description: The whole experiment loop for an agent with SplitHub, step by step with the MCP tools and CLI --json fields: plan, create, implement, check, push, read results, finish, ship. Use when the user asks to run an experiment end to end, or to pick up an experiment where it stands.
+description: The whole experiment loop for an agent with sh2, step by step with the MCP tools and CLI --json fields: plan, create, implement, check, push, read results, finish, ship. Use when the user asks to run an experiment end to end, or to pick up an experiment where it stands.
 ---
 
 # The full loop

@@ -22,7 +22,7 @@ data class SplitHubOptions @JvmOverloads constructor(
 )
 
 /**
- * SplitHub for Android: experiments and analytics. Call [start] once, in `Application.onCreate`:
+ * sh2 for Android: experiments and analytics. Call [start] once, in `Application.onCreate`:
  *
  * ```kotlin
  * SplitHub.start(this, "pk_live_...", property = "sh-x1h78w")

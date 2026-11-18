@@ -20,7 +20,7 @@ describe('menu: analytics', () => {
   it('names the property in both snippets', () => {
     const s = propertySnippets('sh-abc123');
     expect(s.provider).toBe('<SplitHubProvider config={config} property="sh-abc123">');
-    expect(s.script).toContain('src="https://go.splithub.io/sh.js"');
+    expect(s.script).toContain('src="https://go.sh2.uk/sh.js"');
     expect(s.script).toContain('data-property="sh-abc123"');
   });
 
@@ -50,7 +50,7 @@ describe('menu: top level and the cloud areas', () => {
     expect(menuOptions({ hasConfig: true, mode: 'cloud', connected: false, signedIn: false })[0]!.value).toBe('login');
     const self = menuOptions({ hasConfig: true, mode: 'self', connected: false, signedIn: false });
     expect(self.map((o) => o.value)).toEqual(['experiments', 'analytics', 'links', 'alerts', 'notes', 'domains', 'dev', 'doctor', 'skills', 'exit']);
-    for (const v of ['links', 'alerts', 'notes', 'domains']) expect(self.find((o) => o.value === v)!.hint).toBe('with SplitHub Cloud');
+    for (const v of ['links', 'alerts', 'notes', 'domains']) expect(self.find((o) => o.value === v)!.hint).toBe('with sh2 Cloud');
     expect(experimentOptions('self').map((o) => o.value)).toEqual(['create', 'status', 'results', 'start', 'pause', 'finish', 'back']);
   });
 
@@ -61,6 +61,6 @@ describe('menu: top level and the cloud areas', () => {
     expect(alertsOptions().map((o) => o.value)).toEqual(['list', 'add', 'toggle', 'test', 'delete', 'back']);
     expect(linksOptions().map((o) => o.value)).toEqual(['list', 'stats', 'create', 'toggle', 'delete', 'back']);
     expect(notesOptions().map((o) => o.value)).toEqual(['list', 'add', 'edit', 'delete', 'back']);
-    expect(CLOUD_ONLY_ITEM('Alerts')).toMatch(/^Alerts come with SplitHub Cloud/);
+    expect(CLOUD_ONLY_ITEM('Alerts')).toMatch(/^Alerts come with sh2 Cloud/);
   });
 });

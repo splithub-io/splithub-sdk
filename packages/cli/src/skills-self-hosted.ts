@@ -1,17 +1,17 @@
-// Skill: SplitHub with the user's own database (self mode) and reporting from the cloud.
-// Bundled fallback; SplitHub Cloud serves the current text at GET /v1/skills.
+// Skill: sh2 with the user's own database (self mode) and reporting from the cloud.
+// Bundled fallback; sh2 Cloud serves the current text at GET /v1/skills.
 export const SKILL_SELF_HOSTED = `---
 name: splithub-self-hosted
-description: Keep SplitHub events in your own database (self mode): which tables, how to write a Store for Postgres, MySQL, Prisma, Drizzle, Supabase or anything else, where the ingest route lives, how the CLI reads results from it, and how to get cloud data into your own database for reports. Use when the user wants data in their infra or asks about tables, schema or reporting.
+description: Keep sh2 events in your own database (self mode): which tables, how to write a Store for Postgres, MySQL, Prisma, Drizzle, Supabase or anything else, where the ingest route lives, how the CLI reads results from it, and how to get cloud data into your own database for reports. Use when the user wants data in their infra or asks about tables, schema or reporting.
 ---
 
-# SplitHub with your own database
+# sh2 with your own database
 
 Two ways to own the data:
 
 1. **Self mode** — the app hosts the ingest route and the store; nothing leaves your infra.
    \`splithub.config.ts\`: \`storage: { mode: 'self', endpoint: '/api/splithub' }\`.
-2. **Cloud + export** — events go to SplitHub Cloud; you pull summaries into your warehouse for reports.
+2. **Cloud + export** — events go to sh2 Cloud; you pull summaries into your warehouse for reports.
 
 ## Self mode: the pieces
 
@@ -20,7 +20,7 @@ Two ways to own the data:
   \`POST /events\` from the SDK and answers \`GET /status\`, \`GET /results/<id>\` for the CLI
   (\`npx splithub status\` talks to the local dev server, or \`--url https://your.app/api/splithub\`).
   Self-hosted reads are raw numbers per variant (\`variants[]\`: visitors, conversions, rate, revenue)
-  with \`analysis: { available: false }\`. Verdicts, data-quality stars and recommendations come with SplitHub Cloud,
+  with \`analysis: { available: false }\`. Verdicts, data-quality stars and recommendations come with sh2 Cloud,
   and so do slices, breakdowns, timelines and raw experiment events (\`results --from/--filter/--by\` answer \`NOT_CLOUD\` here).
   With an analytics property the SDK sends \`track()\` as one \`event\` row and a page as one \`page\` row; the handler
   stores the goal rows experiments need next to them (goals of the config's experiments only), so the store sees goals as before.
@@ -82,5 +82,5 @@ one raw query for \`variantCounts\`. Supabase: the same SQL as a Postgres functi
 ## Do not
 
 - Put database credentials in \`splithub.config.ts\` (it ships to the browser). They belong in the route's env.
-- Call a winner from raw rates: a higher rate is often noise. Say the numbers as they are; verdicts come with SplitHub Cloud.
+- Call a winner from raw rates: a higher rate is often noise. Say the numbers as they are; verdicts come with sh2 Cloud.
 `;

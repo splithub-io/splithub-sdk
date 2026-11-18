@@ -1,7 +1,7 @@
 {
   "name": "@splithub/adapter-sqlite",
-  "version": "0.5.1",
-  "description": "SQLite store for self-hosted SplitHub experiments and analytics from websites and apps, on the SQLite built into Node. Nothing to compile.",
+  "version": "0.6.0",
+  "description": "SQLite store for self-hosted sh2 experiments and analytics from websites and apps, on the SQLite built into Node. Nothing to compile.",
   "keywords": [
     "splithub",
     "ab-testing",
@@ -22,7 +22,7 @@
     "url": "git+https://github.com/splithub-io/splithub-sdk.git",
     "directory": "packages/adapter-sqlite"
   },
-  "homepage": "https://splithub.io",
+  "homepage": "https://sh2.uk",
   "bugs": {
     "url": "https://github.com/splithub-io/splithub-sdk/issues"
   },

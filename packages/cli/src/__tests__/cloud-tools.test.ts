@@ -1,5 +1,5 @@
 // Notes, short links, alert rules and `analytics connect`: pure helpers, then the built CLI against a
-// fake SplitHub Cloud that records every request.
+// fake sh2 Cloud that records every request.
 import { execFile } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
@@ -144,7 +144,7 @@ function scratch(mode: 'self' | 'cloud', files: Record<string, string> = {}, ext
 }
 
 const NOTE = { id: 'n1', day: '2026-10-02', kind: 'win', text: 'Launch', experimentKey: null, propertyKey: 'site', createdAt: 'x', createdBy: null, author: { name: 'Ann', email: null }, updatedAt: null, updatedBy: null };
-const LINK = { linkId: 'l1', name: 'Spring', shortCode: 'spring', shortUrl: 'https://go.splithub.io/l/spring', status: 'active', destinations: [{ id: 'd1', url: 'https://a.com', weight: 1 }], flow: null, clickLimit: 0, totalClicks: 12, description: null, createdAt: 'x', updatedAt: 'x' };
+const LINK = { linkId: 'l1', name: 'Spring', shortCode: 'spring', shortUrl: 'https://go.sh2.uk/l/spring', status: 'active', destinations: [{ id: 'd1', url: 'https://a.com', weight: 1 }], flow: null, clickLimit: 0, totalClicks: 12, description: null, createdAt: 'x', updatedAt: 'x' };
 const RULE = { id: 'r1aaaaaa-0000', experiment: null, name: 'Every 1,000 events used', condition: 'usage', params: { every: 1000, progress: { total: 1500, fired: 1, month: '2026-10' } }, actions: { channels: [], pause: false, finish: false, dropLoser: false }, enabled: true, cooldownHours: 24, lastFiredAt: null, createdAt: 'x', updatedAt: 'x' };
 
 beforeAll(async () => {

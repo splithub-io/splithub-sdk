@@ -1,6 +1,6 @@
 // splithub notes — what happened on a day ("launched the new pricing page", "checkout broke on
 // Safari"). One list for the project: a note belongs to one experiment, one analytics property, or
-// the whole project (shown on every chart). SplitHub Cloud only.
+// the whole project (shown on every chart). sh2 Cloud only.
 //
 //   splithub notes [--experiment <key> | --property <id>] [--kind note|issue|win] [--days 30 | --from --to]
 //   splithub notes add "<text>" [--kind issue|win|note] [--experiment <key> | --property <id>] [--day YYYY-MM-DD]

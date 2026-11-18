@@ -60,7 +60,7 @@ class OverridesTest {
 
     @Test
     fun overridesUrl() {
-        assertEquals("https://go.splithub.io/v1/overrides/pk_abc.json?all=1", Overrides.resolveUrl("https://go.splithub.io/v1/events", "pk_abc"))
+        assertEquals("https://go.sh2.uk/v1/overrides/pk_abc.json?all=1", Overrides.resolveUrl("https://go.sh2.uk/v1/events", "pk_abc"))
         assertEquals("http://10.0.2.2:8787/v1/overrides/pk_a%20b.json?all=1", Overrides.resolveUrl("http://10.0.2.2:8787/v1/events/", "pk_a b"))
     }
 

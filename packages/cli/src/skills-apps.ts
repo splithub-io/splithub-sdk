@@ -2,10 +2,10 @@
 
 export const SKILL_APPS = `---
 name: splithub-apps
-description: Run SplitHub experiments and analytics in a mobile or desktop app: React Native and Expo (@splithub/react-native), native iOS (Swift package SplitHub) and Android (io.splithub:splithub). Screens, app_version targeting, retention, and why app experiments are created in the cloud. Use when the project has react-native, expo, an Xcode project or an Android Gradle build, or the user asks to A/B test or measure an app.
+description: Run sh2 experiments and analytics in a mobile or desktop app: React Native and Expo (@splithub/react-native), native iOS (Swift package SplitHub) and Android (io.splithub:splithub). Screens, app_version targeting, retention, and why app experiments are created in the cloud. Use when the project has react-native, expo, an Xcode project or an Android Gradle build, or the user asks to A/B test or measure an app.
 ---
 
-# SplitHub in apps
+# sh2 in apps
 
 Same experiments, goals and analytics as on the web. Two things differ: an app's config is built into the binary,
 and screens take the place of pages.

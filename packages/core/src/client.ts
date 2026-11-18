@@ -44,7 +44,7 @@ export const SDK_VERSION = '0.1.0';
  */
 export const REMOTE_WAIT_MS = 400;
 const DEV_NOTE = 'Development sends nothing to the cloud, so your own visits never reach the results. Deployed builds send as usual.';
-export const CLOUD_ENDPOINT = 'https://go.splithub.io/v1/events';
+export const CLOUD_ENDPOINT = 'https://go.sh2.uk/v1/events';
 /** How long analytics events wait for overrides that may declare their property (a property made in the dashboard). */
 export const PROPERTY_WAIT_MS = 5000;
 /** Goal and event props larger than this (as JSON) are trimmed: the ingest refuses them. */
@@ -74,7 +74,7 @@ export interface ClientOptions {
   sdk?: string;
   /**
    * Send the cloud key as `?key=` so page-hide batches can use `navigator.sendBeacon`.
-   * On by default for SplitHub Cloud (the key is public); off for a custom endpoint,
+   * On by default for sh2 Cloud (the key is public); off for a custom endpoint,
    * which may not read the key from the query.
    */
   keyInQuery?: boolean;
@@ -501,8 +501,8 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
       claimed.add(prop);
       return true;
     }
-    if (typeof __SPLITHUB_LITE__ === 'undefined') devNote(`shared:${prop}`, `Another SplitHub script on this page already collects pageviews for "${prop}", so this one leaves them to it. Keep one install per property: the SDK or sh.js.`);
-    hold(`s:${prop}`, 'pageview', `${prop}: pageviews left to the other SplitHub script on this page`);
+    if (typeof __SPLITHUB_LITE__ === 'undefined') devNote(`shared:${prop}`, `Another sh2 script on this page already collects pageviews for "${prop}", so this one leaves them to it. Keep one install per property: the SDK or sh.js.`);
+    hold(`s:${prop}`, 'pageview', `${prop}: pageviews left to the other sh2 script on this page`);
     return false;
   };
 

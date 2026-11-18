@@ -81,8 +81,8 @@ final class ConfigTests: XCTestCase {
     }
 
     func testOverridesURL() {
-        XCTAssertEqual(Keys.overridesURL("https://go.splithub.io/v1/events", "pk_abc")?.absoluteString, "https://go.splithub.io/v1/overrides/pk_abc.json?all=1")
-        XCTAssertEqual(Keys.overridesURL("https://staging.splithub.io/v1/events/", "pk_abc")?.absoluteString, "https://staging.splithub.io/v1/overrides/pk_abc.json?all=1")
+        XCTAssertEqual(Keys.overridesURL("https://go.sh2.uk/v1/events", "pk_abc")?.absoluteString, "https://go.sh2.uk/v1/overrides/pk_abc.json?all=1")
+        XCTAssertEqual(Keys.overridesURL("https://staging.sh2.uk/v1/events/", "pk_abc")?.absoluteString, "https://staging.sh2.uk/v1/overrides/pk_abc.json?all=1")
     }
 
     func testMatchPath() {

@@ -1,6 +1,6 @@
 {
   "name": "splithub",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Experiments and analytics for your website or app in one command: create an A/B experiment, read a plain verdict, check traffic, funnels and retention. Sets up React Native, Expo, iOS and Android apps too. Works for you and for your coding agent.",
   "keywords": [
     "splithub",
@@ -34,7 +34,7 @@
     "url": "git+https://github.com/splithub-io/splithub-sdk.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://splithub.io",
+  "homepage": "https://sh2.uk",
   "bugs": {
     "url": "https://github.com/splithub-io/splithub-sdk/issues"
   },

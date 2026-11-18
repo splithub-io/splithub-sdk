@@ -103,7 +103,7 @@ export function isRemoteOverrides(value: unknown): value is RemoteOverrides {
 }
 
 /**
- * `https://go.splithub.io/v1/events` → `https://go.splithub.io/v1/overrides/<pk>.json`.
+ * `https://go.sh2.uk/v1/events` → `https://go.sh2.uk/v1/overrides/<pk>.json`.
  * `all` (apps: clients with a platform adapter) also asks for every experiment pushed from
  * `splithub.config.ts`: an app has no config file to learn them from. Websites never ask for it.
  */

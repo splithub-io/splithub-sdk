@@ -1,4 +1,4 @@
-// The one attribution rule every SplitHub store follows. The memory store
+// The one attribution rule every sh2 store follows. The memory store
 // implements it in TypeScript (`attributeVariants`), the SQL stores run the
 // query from `variantCountsSql`, and the cloud applies it at ingest
 // (splithub-go/src/services/projectStore.ts). Change it here and there together.
@@ -132,7 +132,7 @@ function revenueExpr(dialect: SqlDialect, alias: string): string {
 }
 
 /**
- * The attribution query for an events table with the columns of the SplitHub
+ * The attribution query for an events table with the columns of the sh2
  * stores (id, type, experiment, variant, goal, visitor_id, ts, props). Returns
  * one row per variant: variant, exposures, conversions, revenue_sum,
  * revenue_sum_sq. Derived tables only, no CTEs or window functions, so the same

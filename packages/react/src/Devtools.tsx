@@ -56,7 +56,7 @@ function Panel({ client }: { client: SplitHubClient }) {
   const box: React.CSSProperties = { position: 'fixed', right: 12, bottom: 12, zIndex: 2147483000, fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12, color: '#e4e4e7' };
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} style={{ ...box, background: '#18181b', border: '1px solid #3f3f46', borderRadius: 999, padding: '6px 10px', cursor: 'pointer' }} title="SplitHub debug">
+      <button type="button" onClick={() => setOpen(true)} style={{ ...box, background: '#18181b', border: '1px solid #3f3f46', borderRadius: 999, padding: '6px 10px', cursor: 'pointer' }} title="sh2 debug">
         SH · {client.config.experiments.length}
       </button>
     );
@@ -64,7 +64,7 @@ function Panel({ client }: { client: SplitHubClient }) {
   return (
     <div style={{ ...box, width: 360, maxHeight: '70vh', overflow: 'auto', background: '#09090b', border: '1px solid #3f3f46', borderRadius: 12, boxShadow: '0 10px 40px rgba(0,0,0,.5)' }} data-tick={tick}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderBottom: '1px solid #27272a', position: 'sticky', top: 0, background: '#09090b' }}>
-        <strong style={{ color: '#34d399' }}>SplitHub debug</strong>
+        <strong style={{ color: '#34d399' }}>sh2 debug</strong>
         <span style={{ color: '#71717a' }}>visitor {client.visitorId.slice(0, 8)}…</span>
         {holdoutGroup(client.config, client.visitorId) === 'holdout' && <span style={{ color: '#fb923c' }} title={REASONS.holdout}>holdout</span>}
         <span style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>

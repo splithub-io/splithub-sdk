@@ -13,7 +13,7 @@ export async function status(flags: Record<string, unknown>): Promise<void> {
     printJson(next ? { ...data, next } : data);
     return;
   }
-  console.log(`${c.bold('SplitHub')} ${c.dim('·')} project ${c.cyan(data.project)} ${c.dim(`· ${target.url}`)}\n`);
+  console.log(`${c.bold('sh2')} ${c.dim('·')} project ${c.cyan(data.project)} ${c.dim(`· ${target.url}`)}\n`);
   if (data.experiments.length === 0) {
     console.log(c.dim('No experiments in splithub.config.ts yet. Run `splithub create`.'));
     printProperties(data);
@@ -54,7 +54,7 @@ export async function status(flags: Record<string, unknown>): Promise<void> {
 
 const change = (x: number | null, before: number) => (x === null ? (before === 0 ? c.dim('new') : '–') : x >= 0 ? c.green(`+${Math.round(x * 100)}%`) : c.red(`${Math.round(x * 100)}%`));
 
-/** One line per analytics property: its last 7 days against the 7 before (SplitHub Cloud). */
+/** One line per analytics property: its last 7 days against the 7 before (sh2 Cloud). */
 export function printProperties(data: Pick<StatusData, 'properties' | 'propertiesRange'>): void {
   if (!data.properties?.length) return;
   const range = data.propertiesRange ? ` ${c.dim(`· ${data.propertiesRange.from} to ${data.propertiesRange.to}`)}` : '';

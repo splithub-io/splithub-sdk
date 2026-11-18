@@ -16,7 +16,7 @@ interface Run {
   json: Record<string, unknown>;
 }
 
-// SplitHub Cloud is never the real one here: a closed port unless a test passes --api.
+// sh2 Cloud is never the real one here: a closed port unless a test passes --api.
 function run(dir: string, args: string[], json = true): Promise<Run> {
   return new Promise((done) => {
     execFile(process.execPath, [cli, ...args, ...(json ? ['--json'] : [])], { cwd: dir, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', SPLITHUB_API_KEY: '', SPLITHUB_URL: '', SPLITHUB_API: 'http://127.0.0.1:9' } }, (error, stdout) => {
@@ -100,11 +100,11 @@ const GUARD = {
 };
 // An older server: no display, the factual message only.
 const OLD = { ...RESULTS, experiment: 'old', display: undefined, voice: undefined };
-const ANALYSIS = { available: false, message: 'Verdicts, stars and recommendations come with SplitHub Cloud.', url: 'https://splithub.io/cloud' };
+const ANALYSIS = { available: false, message: 'Verdicts, stars and recommendations come with sh2 Cloud.', url: 'https://sh2.uk/cloud' };
 const RAW = { experiment: 'hero', kind: 'value', status: 'finished', goal: 'signup', description: null, variants: [{ variant: 'control', visitors: 100, conversions: 10, rate: 0.1 }, { variant: 'bold', visitors: 100, conversions: 12, rate: 0.12 }], days: 2, analysis: ANALYSIS };
 const RAW_STATUS = { project: 'mine', experiments: [{ experiment: 'hero', kind: 'value', status: 'finished', goal: 'signup', description: null, exposures: 200, visitors: 200, days: 2 }], analysis: ANALYSIS };
-const REPORT = { project: 'demo', markdown: '### SplitHub · demo\n\nfrom the server' };
-const SKILLS = { version: 'abc', files: [{ path: '.claude/skills/splithub/SKILL.md', body: '---\nname: splithub\n---\nfrom the server\n' }, { path: '../evil.md', body: 'nope' }, { path: 'AGENTS.md', body: '\n## A/B testing (SplitHub)\nserver section\n' }] };
+const REPORT = { project: 'demo', markdown: '### sh2 · demo\n\nfrom the server' };
+const SKILLS = { version: 'abc', files: [{ path: '.claude/skills/splithub/SKILL.md', body: '---\nname: splithub\n---\nfrom the server\n' }, { path: '../evil.md', body: 'nope' }, { path: 'AGENTS.md', body: '\n## A/B testing (sh2)\nserver section\n' }] };
 const STATUS = { project: 'demo', experiments: [{ experiment: 'hero', kind: 'value', status: 'running', goal: 'signup', description: null, exposures: 200, visitors: 200, days: 2, verdict: 'insufficient_sample', headline: '#2 +10% (too early)', best: null, sample: 'ok', stars: 1, daysToVerdict: 6, display: { label: 'TOO EARLY', lines: ['#2 +10% (too early)'] } }, { experiment: '__holdout', kind: 'value', status: 'running', goal: 'signup', description: null, exposures: 10, visitors: 10, days: 2, verdict: 'insufficient_sample', headline: 'too early', best: null }] };
 
 const pushes: Array<{ replace?: string[]; same?: string[]; prune?: boolean }> = [];
@@ -267,17 +267,17 @@ describe('results and status --json', () => {
     const dir = scratch('self');
     const r = await run(dir, ['results', 'hero', '--url', `${url}/self`], false);
     expect(r.stdout).toMatch(/bold\s+100\s+12\s+12\.0%/);
-    expect(r.stdout).toContain('Verdicts, stars and recommendations come with SplitHub Cloud. https://splithub.io/cloud');
+    expect(r.stdout).toContain('Verdicts, stars and recommendations come with sh2 Cloud. https://sh2.uk/cloud');
     expect(r.stdout).not.toMatch(/WINNER|TOO EARLY|P-VALUE/);
     const j = await run(dir, ['results', 'hero', '--url', `${url}/self`]);
     expect(j.json).toMatchObject({ ...RAW, next: expect.stringContaining('splithub ship') as unknown });
     const st = (await run(dir, ['status', '--url', `${url}/self`], false)).stdout;
     expect(st).not.toContain('VERDICT');
-    expect(st).toContain('come with SplitHub Cloud');
+    expect(st).toContain('come with sh2 Cloud');
     const md = await run(dir, ['report', '--url', `${url}/self`]);
     expect(md.json.markdown).toContain('| `hero` | finished | 200 | 2 |');
     expect(md.json.markdown).toContain('| bold | 100 | 12 | 12.0% |');
-    expect(md.json.markdown).toContain('come with SplitHub Cloud');
+    expect(md.json.markdown).toContain('come with sh2 Cloud');
   });
 });
 
@@ -340,7 +340,7 @@ describe('refs, remove, ship, plan', () => {
     expect((withId.json.traffic as { perDay: number }).perDay).toBe(100);
     expect((await run(dir, ['plan', '--baseline', '2', '--mde', '0.1'])).json.code).toBe('INVALID_FLAG');
     const offline = await run(dir, ['plan', '--baseline', '0.05', '--mde', '0.2']);
-    expect(offline.json).toMatchObject({ code: 'UNREACHABLE', error: expect.stringContaining('needs SplitHub Cloud') as unknown });
+    expect(offline.json).toMatchObject({ code: 'UNREACHABLE', error: expect.stringContaining('needs sh2 Cloud') as unknown });
   });
 
   it('ci init writes a self-contained workflow', async () => {

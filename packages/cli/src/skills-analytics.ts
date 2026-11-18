@@ -2,13 +2,13 @@
 
 export const SKILL_ANALYTICS = `---
 name: splithub-analytics
-description: Collect and read web analytics with SplitHub: analytics properties (pageviews, events with track(), identified users, sources, channels, pages, goals and conversions), setting one up in the app (analytics connect), funnels, paths, retention, realtime, event props, CSV export, segments, notes and alerts on traffic, sh.js or the SDK, allowed domains. Use when the user wants traffic numbers, page or source reports, event tracking, funnels, or asks to "add analytics" to an app that uses SplitHub or could.
+description: Collect and read web analytics with sh2: analytics properties (pageviews, events with track(), identified users, sources, channels, pages, goals and conversions), setting one up in the app (analytics connect), funnels, paths, retention, realtime, event props, CSV export, segments, notes and alerts on traffic, sh.js or the SDK, allowed domains. Use when the user wants traffic numbers, page or source reports, event tracking, funnels, or asks to "add analytics" to an app that uses sh2 or could.
 ---
 
-# SplitHub analytics
+# sh2 analytics
 
 An analytics property is a stream of pageviews and custom events, like a site in Google Analytics. It sits next to the
-experiments: same config file, same CLI, same key, same storage choice (SplitHub Cloud or the app's own database).
+experiments: same config file, same CLI, same key, same storage choice (sh2 Cloud or the app's own database).
 There are no variants and no verdicts: reports are counts.
 
 ## Set it up
@@ -29,7 +29,7 @@ There are no variants and no verdicts: reports are counts.
      experiments whose goal is that event. Only what the app passes to \`track()\` is sent.
    - Users: \`const identify = useIdentify(); identify(user.id, { plan: 'pro' })\` after sign-in (\`identify(null)\` on sign-out;
      sh.js: \`splithub.identify(id, traits)\`) ties visits to the app's user; reports then count \`users\`. No emails or names in traits.
-   - No SDK: \`<script src="https://go.splithub.io/sh.js" data-key="pk_…" async></script>\` sends pageviews (SPA navigations
+   - No SDK: \`<script src="https://go.sh2.uk/sh.js" data-key="pk_…" async></script>\` sends pageviews (SPA navigations
      included) and \`window.splithub.track(name, props)\` once the tag has \`data-property="sh-x1h78w"\`.
    - One install covers analytics and experiments: the provider (or sh.js) with \`property\` collects pageviews and runs
      experiments. Each \`track()\` sends one event row and each page one page row; experiments whose goal is that event or
@@ -46,7 +46,7 @@ There are no variants and no verdicts: reports are counts.
 ## Read it
 
 - \`npx splithub analytics --json\`: every property with visitors, visits, pageviews and bounce for the last 30 days.
-- \`npx splithub status --json\` (SplitHub Cloud) also lists every property under \`properties\`: the last 7 days against the 7 before
+- \`npx splithub status --json\` (sh2 Cloud) also lists every property under \`properties\`: the last 7 days against the 7 before
   (visitors, \`change\`, goal conversions); \`npx splithub report\` adds them as an Analytics table. The digest (Pro, set in the
   dashboard under Alerts) covers properties too: visitors, top sources and pages, goals and events against the period before.
 - \`npx splithub analytics site --json\` (\`--days 7\`, or \`--from 2026-10-01 --to 2026-10-31\`): totals, \`users\` (identified),
@@ -55,7 +55,7 @@ There are no variants and no verdicts: reports are counts.
   visit dimension, \`--goal signup\` adds conversions per row; \`--by variant --experiment hero\` splits visits by the
   variant each visitor saw, \`--by trait --key plan\` by an identify() trait. \`--filter country=DE,FR --filter source="(none)"\` narrows any report.
 - \`npx splithub analytics events site --json\`: the latest raw pageviews and events, to check tracking right after wiring it.
-- More reports (SplitHub Cloud), each with the same \`--days\` / \`--from --to\` / \`--filter\` flags:
+- More reports (sh2 Cloud), each with the same \`--days\` / \`--from --to\` / \`--filter\` flags:
   - \`analytics funnel site --steps "page:/,event:Signup,goal:paid" [--within visit|7d|30d] [--by country]\`: visitors per step
     in order, \`conversion\` (share of step 1) and \`dropoff\` (share lost since the step before).
   - \`analytics funnels site\`: the funnels saved on the property (its Funnels tab, shared with the team).
@@ -71,7 +71,7 @@ There are no variants and no verdicts: reports are counts.
     (\`analytics segments\`, \`--save <name> country=DE\`, \`--delete <id|name>\`).
   - Notes mark a day on the charts: \`npx splithub notes add "Launched new pricing" [--kind win] [--property site] [--day 2026-10-05]\`,
     \`notes --property site\` lists them; add one when you ship something that may move traffic.
-  - Alerts on a property (SplitHub Cloud, Pro): \`npx splithub alerts add traffic_drop --property site --percent 50\`, \`traffic_spike\`,
+  - Alerts on a property (sh2 Cloud, Pro): \`npx splithub alerts add traffic_drop --property site --percent 50\`, \`traffic_spike\`,
     \`goal_silent --property site --goal signup --hours 24\`, \`event_count --property site --event Signup --count 1000 [--repeat]\`.
 - Words: a visit (\`sessions\`) ends after 30 minutes without events; a bounce is a visit with one page and no event;
   \`source\` is the UTM source or the referrer's site (Google, Facebook, …), \`(none)\` = direct; \`channel\` groups them (Direct,
@@ -79,12 +79,12 @@ There are no variants and no verdicts: reports are counts.
   \`duration\` is in milliseconds. Bots are never counted.
 - Self-hosted (\`mode: 'self'\`): the same commands give raw counts from the app's database (pageviews, visitors,
   sessions, events by name) for \`--days\` or \`--from --to\` (UTC days). Filters, \`--by\`, \`--compare\` and reports with sources,
-  pages, visits and conversions come with SplitHub Cloud: say so.
+  pages, visits and conversions come with sh2 Cloud: say so.
 
 ## Manage it
 
 - \`npx splithub analytics pause site\` / \`resume site\`: live in the cloud within a minute; paused events are dropped and not billed.
-- \`npx splithub analytics archive site\` / \`restore site\` (SplitHub Cloud): like Archive in the dashboard, it stops collecting and leaves
+- \`npx splithub analytics archive site\` / \`restore site\` (sh2 Cloud): like Archive in the dashboard, it stops collecting and leaves
   the list (\`archived\` in it), numbers kept; restored comes back paused.
 - \`npx splithub analytics remove site\`: out of the config (push next); a dashboard-made property is deleted with its numbers.
 - Allowed domains are per experiment and per property: \`npx splithub domains set property site example.com\` (subdomains included),

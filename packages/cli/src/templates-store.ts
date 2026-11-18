@@ -10,7 +10,7 @@ export const DB_KINDS: DbKind[] = ['sqlite', 'postgres', 'mysql', 'custom'];
 export const PG_STORE = `import { countsFromRow, propertyCountsFromRows, propertyCountsSql, storedEventFromRow, variantCountsSql, type ExperimentSummary, type PropertyCounts, type Store, type StoredEvent, type StoreVariantCounts } from '@splithub/node';
 import { Pool } from 'pg';
 
-// SplitHub events in your Postgres. Run once (or add to your migrations):
+// sh2 events in your Postgres. Run once (or add to your migrations):
 export const SCHEMA_SQL = \`
 CREATE TABLE IF NOT EXISTS splithub_events (
   id          text PRIMARY KEY,
@@ -37,7 +37,7 @@ CREATE INDEX IF NOT EXISTS splithub_events_goal ON splithub_events (type, goal, 
 ALTER TABLE splithub_events ADD COLUMN IF NOT EXISTS platform text, ADD COLUMN IF NOT EXISTS app_version text;
 \`;
 
-// The attribution rule shared by every SplitHub store (first exposure, 60 s clock skew, 50 goals per visitor and day).
+// The attribution rule shared by every sh2 store (first exposure, 60 s clock skew, 50 goals per visitor and day).
 const counts = variantCountsSql({ dialect: 'postgres', table: 'splithub_events' });
 // Analytics properties: pageviews, events, engagement and identify rows share the table; raw counts
 // only (users = distinct ids sent with identify).
@@ -98,7 +98,7 @@ export function pgStore(pool: Pool = new Pool({ connectionString: process.env.DA
 export const MYSQL_STORE = `import { countsFromRow, propertyCountsFromRows, propertyCountsSql, storedEventFromRow, variantCountsSql, type ExperimentSummary, type PropertyCounts, type Store, type StoredEvent, type StoreVariantCounts } from '@splithub/node';
 import mysql, { type Pool } from 'mysql2/promise';
 
-// SplitHub events in your MySQL / MariaDB / PlanetScale. Run once (or add to your migrations):
+// sh2 events in your MySQL / MariaDB / PlanetScale. Run once (or add to your migrations):
 export const SCHEMA_SQL = \`
 CREATE TABLE IF NOT EXISTS splithub_events (
   id          VARCHAR(64) PRIMARY KEY,
@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS splithub_events (
 );
 \`;
 
-// The attribution rule shared by every SplitHub store (first exposure, 60 s clock skew, 50 goals per visitor and day).
+// The attribution rule shared by every sh2 store (first exposure, 60 s clock skew, 50 goals per visitor and day).
 const counts = variantCountsSql({ dialect: 'mysql', table: 'splithub_events' });
 // Analytics properties: pageviews, events, engagement and identify rows share the table; raw counts
 // only (users = distinct ids sent with identify).

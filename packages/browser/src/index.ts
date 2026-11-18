@@ -1,7 +1,7 @@
-// @splithub/browser — run SplitHub on a site without the React SDK.
+// @splithub/browser — run sh2 on a site without the React SDK.
 //
-// Served by SplitHub Cloud as a drop-in script:
-//   <script src="https://go.splithub.io/sh.js" data-key="pk_live_..."></script>
+// Served by sh2 Cloud as a drop-in script:
+//   <script src="https://go.sh2.uk/sh.js" data-key="pk_live_..."></script>
 //
 // What it does on every page:
 //   1. reads the hosted config + live overrides (cached, refreshed every 60 s);
@@ -57,7 +57,7 @@ export type { RedirectDecision };
 export interface BootOptions {
   /** Public project key (pk_...). */
   key: string;
-  /** Events endpoint; defaults to SplitHub Cloud. */
+  /** Events endpoint; defaults to sh2 Cloud. */
   endpoint?: string;
   /** How long to hold the page hidden while deciding a redirect (ms). Default 1500. */
   holdMs?: number;

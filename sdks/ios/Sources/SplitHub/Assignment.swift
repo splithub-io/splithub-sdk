@@ -158,7 +158,7 @@ enum Keys {
         return normalizePath(pattern) == normalizePath(path)
     }
 
-    /// `https://go.splithub.io/v1/events` → `https://go.splithub.io/v1/overrides/<pk>.json?all=1`.
+    /// `https://go.sh2.uk/v1/events` → `https://go.sh2.uk/v1/overrides/<pk>.json?all=1`.
     /// `all=1`: an app has no config file, so it also asks for the experiments pushed from `splithub.config.ts`.
     static func overridesURL(_ eventsEndpoint: String, _ publicKey: String) -> URL? {
         var base = eventsEndpoint

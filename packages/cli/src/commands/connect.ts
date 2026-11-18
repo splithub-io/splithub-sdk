@@ -1,5 +1,5 @@
 // splithub analytics connect — set up analytics in this app the way `init` sets up experiments:
-// pick (or create) a property, name it on the app's SplitHub provider, show how to send events.
+// pick (or create) a property, name it on the app's sh2 provider, show how to send events.
 //
 //   splithub analytics connect                   pick one, or create one when there is none
 //   splithub analytics connect sh-x1h78w         use this property (added to the config when it is new)
@@ -94,7 +94,7 @@ export function wireSource(
   };
 }
 
-/** Finds the app's SplitHub provider and names the property on it. */
+/** Finds the app's sh2 provider and names the property on it. */
 export function wireProvider(root: string, key: string, force = false): WireResult {
   const found: Array<{ file: string; src: string; count: number }> = [];
   for (const file of listSourceFiles(root)) {
@@ -218,10 +218,10 @@ export async function connect(given: string | undefined, flags: Flags): Promise<
   if (wired.status === 'added') ok(`named on the provider in ${c.dim(`${wired.file}:${wired.line}`)}`);
   else if (wired.status === 'already') ok(`already named on the provider in ${c.dim(`${wired.file}:${wired.line}`)}`);
   else if (wired.status === 'other') console.log(c.yellow(`! ${wired.file}:${wired.line} already sends to ${wired.current}. Run again with --force to switch to ${key}.`));
-  else if (wired.status === 'many') console.log(c.yellow(`! More than one SplitHub provider (${wired.files?.join(', ')}): add property="${key}" to the one that wraps the app.`));
-  else if (project.app) console.log(`\nNo SplitHub provider in the code yet: run npx splithub init, or wrap the app once:\n  ${c.cyan(snippets.provider)}`);
+  else if (wired.status === 'many') console.log(c.yellow(`! More than one sh2 provider (${wired.files?.join(', ')}): add property="${key}" to the one that wraps the app.`));
+  else if (project.app) console.log(`\nNo sh2 provider in the code yet: run npx splithub init, or wrap the app once:\n  ${c.cyan(snippets.provider)}`);
   else if (project.framework === 'unknown') console.log(`\nPaste this into the <head> of every page:\n  ${c.cyan(snippets.script)}`);
-  else console.log(`\nNo SplitHub provider in the code yet. Wrap the app once:\n  ${c.cyan(snippets.provider)}\nNo SDK? The script tag works too:\n  ${c.cyan(snippets.script)}`);
+  else console.log(`\nNo sh2 provider in the code yet. Wrap the app once:\n  ${c.cyan(snippets.provider)}\nNo SDK? The script tag works too:\n  ${c.cyan(snippets.script)}`);
   console.log(`\n${c.bold('Send events')} ${c.dim(project.app ? '(screens come from the screen tracker, or useScreen)' : '(pageviews are sent for you)')}`);
   if (project.framework === 'unknown' && !project.app && wired.status === 'none') console.log(`  ${c.cyan("window.splithub.track('Signup', { plan: 'pro' })")}`);
   else

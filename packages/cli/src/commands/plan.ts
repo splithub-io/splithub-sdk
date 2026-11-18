@@ -1,4 +1,4 @@
-// `splithub plan`: sample size for a planned test. SplitHub Cloud sizes it (GET /plan, no login
+// `splithub plan`: sample size for a planned test. sh2 Cloud sizes it (GET /plan, no login
 // needed); with an experiment id and access to its numbers, the CLI adds the days at its pace.
 import { cloudTarget, fetchPlan, fetchStatus, resolveTarget, type PlanResult } from '../api';
 import { CliError, fail, printJson } from '../errors';
@@ -16,7 +16,7 @@ function num(flags: Flags, name: string): number | undefined {
 
 export type Plan = PlanResult;
 
-/** Ask SplitHub Cloud for the sample size. Bad numbers are INVALID_FLAG; no connection says planning needs the cloud. */
+/** Ask sh2 Cloud for the sample size. Bad numbers are INVALID_FLAG; no connection says planning needs the cloud. */
 export async function requestPlan(flags: Flags, baseline: number, mde: number, variants: number): Promise<Plan> {
   if (!(baseline > 0 && baseline < 1)) fail('INVALID_FLAG', `--baseline ${baseline} must be a rate between 0 and 1.`, 'For example --baseline 0.05 for 5% of visitors converting today.');
   if (!(mde > 0)) fail('INVALID_FLAG', `--mde ${mde} must be above 0.`, 'The smallest relative lift worth finding, e.g. --mde 0.1 for +10%.');
@@ -25,7 +25,7 @@ export async function requestPlan(flags: Flags, baseline: number, mde: number, v
   try {
     return await fetchPlan(target, { baseline, mde, variants });
   } catch (error) {
-    if (error instanceof CliError && error.code === 'UNREACHABLE') fail('UNREACHABLE', `Planning an experiment needs SplitHub Cloud, and we can't reach ${target.url} right now.`, 'Check your connection and try again. No account needed.');
+    if (error instanceof CliError && error.code === 'UNREACHABLE') fail('UNREACHABLE', `Planning an experiment needs sh2 Cloud, and we can't reach ${target.url} right now.`, 'Check your connection and try again. No account needed.');
     if (error instanceof CliError && error.code === 'API_ERROR') fail('INVALID_FLAG', error.message, error.hint);
     throw error;
   }

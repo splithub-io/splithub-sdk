@@ -1,7 +1,7 @@
 {
   "name": "@splithub/adapter-d1",
-  "version": "0.5.1",
-  "description": "Cloudflare D1 store for self-hosted SplitHub experiments and analytics from websites and apps on Workers, with an in-memory D1 for tests.",
+  "version": "0.6.0",
+  "description": "Cloudflare D1 store for self-hosted sh2 experiments and analytics from websites and apps on Workers, with an in-memory D1 for tests.",
   "keywords": [
     "splithub",
     "ab-testing",
@@ -24,7 +24,7 @@
     "url": "git+https://github.com/splithub-io/splithub-sdk.git",
     "directory": "packages/adapter-d1"
   },
-  "homepage": "https://splithub.io",
+  "homepage": "https://sh2.uk",
   "bugs": {
     "url": "https://github.com/splithub-io/splithub-sdk/issues"
   },

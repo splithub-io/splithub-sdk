@@ -1,6 +1,6 @@
 # @splithub/next
 
-SplitHub for Next.js (App Router, 14+). Three entry points:
+sh2 for Next.js (App Router, 14+). Three entry points:
 
 | Import | Runs | What it gives you |
 |---|---|---|

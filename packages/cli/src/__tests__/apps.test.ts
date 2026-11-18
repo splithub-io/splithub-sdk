@@ -181,7 +181,7 @@ describe('init in apps', () => {
     const out = run(d, ['init', '--mode', 'self', '--yes', '--no-install', '--no-login', '--no-mcp']);
     expect(out).toMatchObject({ mode: 'cloud', app: { kind: 'ios', entry: null }, installCommands: [] });
     expect(out.app.install).toContain('.package(url:');
-    expect(out.notes[0]).toMatch(/SplitHub Cloud/);
+    expect(out.notes[0]).toMatch(/sh2 Cloud/);
     expect(existsSync(join(d, 'splithub.config.ts'))).toBe(false);
   });
 });
