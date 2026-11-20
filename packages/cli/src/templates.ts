@@ -1,8 +1,19 @@
-export function configTemplate(project: string, mode: 'self' | 'cloud', key?: string, options: { app?: boolean } = {}): string {
+/** How the project's bundler inlines a public variable: Expo and Next read process.env, Vite import.meta.env. */
+function publicEnv(name: string, options: { app?: boolean; framework?: 'next' | 'vite' | 'unknown' }): string {
+  if (options.app) return `process.env.EXPO_PUBLIC_${name}`;
+  // `?.`: the CLI also loads this file in Node, where import.meta.env does not exist.
+  if (options.framework === 'vite') return `import.meta.env?.VITE_${name}`;
+  return `process.env.NEXT_PUBLIC_${name}`;
+}
+
+export function configTemplate(project: string, mode: 'self' | 'cloud', key?: string, options: { app?: boolean; framework?: 'next' | 'vite' | 'unknown' } = {}): string {
   // An app has no origin of its own: self-hosted events go to the server's full URL, and Expo inlines EXPO_PUBLIC_* variables.
-  const endpoint = options.app ? "process.env.EXPO_PUBLIC_SPLITHUB_ENDPOINT ?? 'https://example.com/api/splithub'" : "'/api/splithub'";
-  const envKey = options.app ? 'EXPO_PUBLIC_SPLITHUB_KEY' : 'NEXT_PUBLIC_SPLITHUB_KEY';
-  const storage = mode === 'self' ? `{ mode: 'self', endpoint: ${endpoint} }` : `{ mode: 'cloud', key: ${key ? `'${key}'` : `process.env.${envKey} ?? ''`} }`;
+  const endpoint = options.app ? `${publicEnv('SPLITHUB_ENDPOINT', options)} ?? 'https://example.com/api/splithub'` : "'/api/splithub'";
+  // Cloud: the endpoint is optional. Unset, events go to SplitHub Cloud; set it (a domain or a URL) to send
+  // through your own proxy or anywhere else, from an environment variable, without touching the packages.
+  const storage = mode === 'self'
+    ? `{ mode: 'self', endpoint: ${endpoint} }`
+    : `{ mode: 'cloud', key: ${key ? `'${key}'` : `${publicEnv('SPLITHUB_KEY', options)} ?? ''`}, endpoint: ${publicEnv('SPLITHUB_ENDPOINT', options)} }`;
   const appNote = options.app
     ? `
 // In an app this file is built into the binary: a new experiment here reaches users with the next

@@ -48,6 +48,11 @@ Events go to the app's own database (self mode) or to SplitHub Cloud (cloud mode
   sets one up in the app; the \`splithub-analytics\` skill has the rest.
 - Apps (React Native, Expo, iOS, Android): the \`splithub-apps\` skill. The config is built into the binary, so new
   experiments for an app start in the dashboard; screens are page events; target versions with \`app_version\` \`gte\`.
+- Where events go: unset \`storage.endpoint\` = SplitHub Cloud (the SDK follows the cloud's address by itself). The config made
+  by \`init\` reads it from \`NEXT_PUBLIC_SPLITHUB_ENDPOINT\` / \`VITE_SPLITHUB_ENDPOINT\` / \`EXPO_PUBLIC_SPLITHUB_ENDPOINT\`; a domain
+  or a full URL works. To send through the user's own domain (ad blockers, first-party data): \`npx splithub proxy\` writes a
+  route (\`createCloudProxy\` from \`@splithub/node\`; Next.js route, else a Cloudflare Worker, \`--kind express\`) and prints the
+  variable to set. Nothing to set up on the cloud. Own database instead: \`mode: 'self'\`.
 
 ## Pick the kind
 

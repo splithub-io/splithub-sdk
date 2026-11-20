@@ -20,7 +20,7 @@ import AppKit
 /// `Options.waitMs` for them and shows the control meanwhile.
 public final class SplitHub: ObservableObject {
     public static let shared = SplitHub()
-    public static let version = "0.7.0"
+    public static let version = "0.8.0"
     public static let defaultEndpoint = URL(string: "https://go.sh2.uk/v1/events")!
 
     public struct Options {

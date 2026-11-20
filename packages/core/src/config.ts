@@ -304,6 +304,17 @@ export function pickProperty(config: Pick<SplitHubConfig, 'properties'>, key?: s
 }
 
 /**
+ * Cloud mode: an endpoint from an unset environment variable (undefined or '') means the default,
+ * and a bare domain becomes its events URL. Self mode is kept as written.
+ */
+function cloudStorage(storage: SplitHubConfigInput['storage']): SplitHubConfigInput['storage'] {
+  if (storage.mode !== 'cloud') return storage;
+  const { endpoint, ...rest } = storage;
+  const value = typeof endpoint === 'string' ? endpoint.trim() : '';
+  return value ? { ...rest, endpoint: normalizeCloudEndpoint(value) } : rest;
+}
+
+/**
  * Validate and normalize a config. Call it once in `splithub.config.ts`:
  *
  * ```ts
@@ -345,7 +356,7 @@ export function defineConfig(input: SplitHubConfigInput): SplitHubConfig {
 
   return {
     project: input.project,
-    storage: input.storage.mode === 'cloud' && input.storage.endpoint ? { ...input.storage, endpoint: normalizeCloudEndpoint(input.storage.endpoint) } : input.storage,
+    storage: cloudStorage(input.storage),
     visitorKey: input.visitorKey ?? 'sh_vid',
     runDraftsInDev: input.runDraftsInDev === true,
     goals,

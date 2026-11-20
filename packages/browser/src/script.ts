@@ -10,9 +10,10 @@ import { boot } from './index';
     console.warn('[splithub] sh.js: missing data-key="pk_..."');
     return;
   }
-  // Events go to the same origin the script was loaded from (cloud or self-hosted cloud).
-  const origin = /^(https?:\/\/[^/]+)/.exec(src)?.[1];
-  const endpoint = el?.dataset.endpoint ?? (origin ? `${origin}/v1/events` : undefined);
+  // Events go where the script came from: `https://go.sh2.uk/sh.js` → `https://go.sh2.uk/v1/events`,
+  // and through a first-party proxy `https://shop.com/sh/sh.js` → `https://shop.com/sh/v1/events`.
+  const base = /^(https?:\/\/[^?#]*?)\/(?:v1\/)?sh\.js(?:[?#].*)?$/.exec(src)?.[1] ?? /^(https?:\/\/[^/]+)/.exec(src)?.[1];
+  const endpoint = el?.dataset.endpoint ?? (base ? `${base}/v1/events` : undefined);
   const property = el?.dataset.property;
   void boot({ key, endpoint, ...(property ? { property } : {}), redirects: el?.dataset.redirects !== undefined, noHold: el?.dataset.hold === 'off', holdMs: el?.dataset.hold ? Number(el.dataset.hold) || undefined : undefined });
 })();

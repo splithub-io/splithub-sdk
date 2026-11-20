@@ -61,6 +61,9 @@ Project
   splithub pull                   show the config stored in the cloud
   splithub report                 status and verdicts as Markdown, raw numbers when self-hosted (used by the GitHub workflow)
   splithub ci init                write .github/workflows/splithub.yml (checks on PRs, results comment on a schedule)
+  splithub proxy [--kind next|worker|express] [--path sh]
+                                  send events through your own domain: writes a route that forwards to SplitHub Cloud
+                                  and says which variable points the SDK at it (NEXT_PUBLIC_ / VITE_ / EXPO_PUBLIC_SPLITHUB_ENDPOINT)
   splithub dev [--url] [--hold]   open the app with ?sh_debug=1 (console + panel: variants, reasons, events) and watch results
   splithub doctor                 check the installation
   splithub update [--yes]         update splithub (and the project's @splithub/* packages) to the latest release; --json only reports
@@ -118,6 +121,8 @@ async function main(): Promise<void> {
       mcp: { type: 'boolean', default: false },
       force: { type: 'boolean', default: false },
       kind: { type: 'string' },
+      /** `splithub proxy --path sh`: where the proxy route is mounted. */
+      path: { type: 'string' },
       id: { type: 'string' },
       variants: { type: 'string' },
       weights: { type: 'string' },
@@ -238,6 +243,8 @@ async function main(): Promise<void> {
     case 'ci':
       if (arg !== 'init') fail('USAGE', `Unknown "ci ${arg ?? ''}".`, 'Run npx splithub ci init.');
       return (await import('./commands/ci')).ciInit(values);
+    case 'proxy':
+      return (await import('./commands/proxy')).proxy(values);
     case 'holdout':
       return (await import('./commands/holdout')).holdout(arg, third, values);
     case 'analytics':

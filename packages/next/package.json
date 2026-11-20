@@ -1,6 +1,6 @@
 {
   "name": "@splithub/next",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "SplitHub for Next.js: experiments and analytics with middleware, server components, redirect experiments and the route for your own database.",
   "keywords": [
     "splithub",

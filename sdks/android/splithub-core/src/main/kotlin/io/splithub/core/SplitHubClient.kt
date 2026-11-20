@@ -66,7 +66,7 @@ class ClientOptions @JvmOverloads constructor(
  */
 class SplitHubClient(private val options: ClientOptions) {
     companion object {
-        const val VERSION = "0.7.0"
+        const val VERSION = "0.8.0"
         const val DEFAULT_ENDPOINT = "https://go.sh2.uk/v1/events"
         const val REMOTE_WAIT_MS = 400L
         const val PROPERTY_WAIT_MS = 5_000L

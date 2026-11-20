@@ -134,7 +134,7 @@ export async function init(flags: Flags): Promise<void> {
       }
     }
     if (!key && !yes) {
-      const k = await p.text({ message: 'Cloud public key (pk_...), leave empty to set later via NEXT_PUBLIC_SPLITHUB_KEY', placeholder: 'pk_' });
+      const k = await p.text({ message: `Cloud public key (pk_...), leave empty to set later via ${rn ? 'EXPO_PUBLIC_SPLITHUB_KEY' : project.framework === 'vite' ? 'VITE_SPLITHUB_KEY' : 'NEXT_PUBLIC_SPLITHUB_KEY'}`, placeholder: 'pk_' });
       if (p.isCancel(k)) return cancel();
       key = k || undefined;
     }
@@ -143,7 +143,7 @@ export async function init(flags: Flags): Promise<void> {
   // 1. config
   // Native apps never read the file (the SDK gets experiments from the cloud), so they get none.
   const configFile = project.configFile ?? join(project.root, 'splithub.config.ts');
-  if (!native) writeIfMissing(configFile, configTemplate(project.name, mode, key, { app: rn }), created, skipped);
+  if (!native) writeIfMissing(configFile, configTemplate(project.name, mode, key, { app: rn, framework: project.framework }), created, skipped);
 
   // 2a. store for self mode (postgres / mysql / custom); sqlite needs no file. An app's events go to a server set up on its own.
   const storeBody = mode === 'self' && !project.app ? storeTemplate(db) : null;
@@ -236,7 +236,7 @@ export async function init(flags: Flags): Promise<void> {
     mode === 'cloud' && !key
       ? native
         ? 'No public key yet: run `npx splithub login` (or pass --key pk_…, dashboard → Setup) and put it in SplitHub.start.'
-        : `No public key yet: storage.key falls back to process.env.${rn ? 'EXPO_PUBLIC_SPLITHUB_KEY' : 'NEXT_PUBLIC_SPLITHUB_KEY'}. It is written into the config by the first \`npx splithub push\`, by \`npx splithub login\` (saved with the credentials), or pass --key pk_… (dashboard → Setup); SPLITHUB_API_KEY in the environment also resolves it.`
+        : `No public key yet: storage.key falls back to ${rn ? 'EXPO_PUBLIC_SPLITHUB_KEY' : project.framework === 'vite' ? 'VITE_SPLITHUB_KEY' : 'NEXT_PUBLIC_SPLITHUB_KEY'}. It is written into the config by the first \`npx splithub push\`, by \`npx splithub login\` (saved with the credentials), or pass --key pk_… (dashboard → Setup); SPLITHUB_API_KEY in the environment also resolves it.`
       : null;
   if (rn && entry?.file && entry.patch.status === 'added') created.push(`${entry.file} (wrapped in <SplitHubProvider>${entry.patch.screens && screens ? ', screens tracked' : ''})`);
   if (rn && entry?.patch.status === 'added' && !entry.patch.screens && screens) notes.push(`Screens: add <NavigationScreens /> inside your <NavigationContainer> (from @splithub/react-native).`);

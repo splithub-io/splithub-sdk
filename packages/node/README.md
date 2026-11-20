@@ -55,6 +55,24 @@ An app batch carries the app's info instead of a user agent: every stored event 
 (`ios`, `android` ...; `web` for websites) and `app_version`, and the device, OS and host come from
 the app. Events sent while the app was offline arrive later with their original time.
 
+## Your own domain in front of SplitHub Cloud
+
+`createCloudProxy()` forwards the SDK's calls (events, live experiments, `sh.js`) from a path on your
+domain to SplitHub Cloud, with the visitor's browser, language and country. Ad blockers leave
+first-party requests alone, and the cloud needs no setup: it takes events from any domain.
+
+```ts
+// Next.js: app/sh/[...path]/route.ts
+import { createCloudProxy } from '@splithub/node';
+const proxy = createCloudProxy();
+export { proxy as GET, proxy as POST, proxy as OPTIONS };
+// Cloudflare Worker: export default { fetch: createCloudProxy() };
+```
+
+Then point the SDK at it: `storage.endpoint` (or `NEXT_PUBLIC_SPLITHUB_ENDPOINT` in a config made by
+`splithub init`) set to `https://example.com/sh/v1/events`. The proxy follows SplitHub Cloud's address
+by itself; `createCloudProxy({ upstream })` or `SPLITHUB_UPSTREAM` pins it.
+
 ## Bring your own database
 
 Implement the `Store` interface (three methods) against Postgres, Supabase,

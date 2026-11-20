@@ -2,6 +2,16 @@
 
 Every package in this repository is released together under one version.
 
+## 0.8.0
+
+Send events through your own domain, and set where they go from the environment.
+
+- **First-party proxy** (`@splithub/node`). `createCloudProxy()` is a fetch-style handler that forwards the SDK's calls (events, live experiments, `sh.js`) to SplitHub Cloud from any path on your domain: a Next.js route, a Cloudflare Worker, Express through `toNodeListener`. The visitor's browser, language and country go along, so reports read as before. It follows the cloud's address by itself; `upstream` or `SPLITHUB_UPSTREAM` pins it.
+- **`npx splithub proxy`** writes that handler where the project expects it (a Next.js route, else a Cloudflare Worker; `--kind express`, `--path`) and prints the variable that points the SDK at it. The agent skills know it too.
+- **sh.js loaded through a proxy** (`https://shop.com/sh/sh.js`) sends back to the same path (`/sh/v1/events`), not to the domain's root.
+- **Endpoint from the environment.** `npx splithub init` writes `endpoint: process.env.NEXT_PUBLIC_SPLITHUB_ENDPOINT` (`VITE_SPLITHUB_ENDPOINT` with Vite, `EXPO_PUBLIC_SPLITHUB_ENDPOINT` with Expo): set it in your hosting settings to send through a proxy; unset, events go to SplitHub Cloud. An empty value counts as unset.
+- **Vite projects** read the public key from `VITE_SPLITHUB_KEY` in a new config (it was `NEXT_PUBLIC_SPLITHUB_KEY`, which Vite never inlines).
+
 ## 0.7.0
 
 SplitHub Cloud moved to `go.sh2.uk` in 0.6 (the old `splithub.io` domain lapsed). From this release on, a move like that no longer needs a new build of your site or app.

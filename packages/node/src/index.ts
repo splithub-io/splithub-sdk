@@ -18,3 +18,5 @@ export { attributionConformance, sortCounts } from './conformance';
 export type { ConformanceCase } from './conformance';
 export { experimentGoals, goalsFromAnalytics, SAME_ACTION_MS } from './derive';
 export type { DerivableGoal, DerivedGoal } from './derive';
+export { createCloudProxy, platformGeo } from './proxy';
+export type { CloudProxyOptions, ProxyGeo } from './proxy';
