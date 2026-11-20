@@ -7,9 +7,9 @@ Experiments and analytics for native Android apps, in Kotlin. A visitor gets the
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("io.splithub:splithub:0.6.1")
+    implementation("io.splithub:splithub:0.7.0")
     // Optional: Jetpack Compose helpers
-    implementation("io.splithub:splithub-compose:0.6.1")
+    implementation("io.splithub:splithub-compose:0.7.0")
 }
 ```
 

@@ -12,9 +12,9 @@
 //
 // Vite's types are described structurally so @splithub/core keeps zero dependencies.
 
-import { CLOUD_ENDPOINT } from './client';
 import { isSplitHubConfig } from './config';
-import { applyRemoteOverrides, fetchRemoteOverrides, resolveOverridesUrl } from './remote';
+import { fetchCloudOverrides } from './endpoint';
+import { applyRemoteOverrides } from './remote';
 import type { Experiment, SplitHubConfig } from './types';
 
 interface Logger {
@@ -78,9 +78,8 @@ export function describeExperiment(config: SplitHubConfig, e: Experiment, live?:
 
 async function liveConfig(config: SplitHubConfig): Promise<SplitHubConfig | null> {
   if (config.storage.mode !== 'cloud' || !config.storage.key) return null;
-  const url = resolveOverridesUrl(config.storage.endpoint ?? CLOUD_ENDPOINT, config.storage.key);
   const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
-  const overrides = await Promise.race([fetchRemoteOverrides(url), timeout]);
+  const overrides = await Promise.race([fetchCloudOverrides(config.storage.endpoint, config.storage.key), timeout]);
   return overrides ? applyRemoteOverrides(config, overrides) : null;
 }
 

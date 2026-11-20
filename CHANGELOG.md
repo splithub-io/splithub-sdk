@@ -2,6 +2,24 @@
 
 Every package in this repository is released together under one version.
 
+## 0.7.0
+
+SplitHub Cloud moved to `go.sh2.uk` in 0.6 (the old `splithub.io` domain lapsed). From this release on, a move like that no longer needs a new build of your site or app.
+
+### Every SDK (web, React Native, Next.js, iOS, Android, sh.js)
+
+- **The cloud announces its address.** The overrides every client already fetches now carry `endpoint`; the SDK keeps it on the device and sends there from the next page or launch.
+- **A backup address.** When the cloud's domain gives no answer at all, events and overrides go to a backup on `workers.dev`, which belongs to no domain that can lapse, and the client learns the current address from there. An error status never switches addresses.
+- **Your own endpoint stays yours.** A staging cloud or a proxy on your domain in `storage.endpoint` (or `endpoint:` in `start`) is used as written, with no backup. A config that still names `go.splithub.io` is moved to the current address.
+
+### Config (`@splithub/core`)
+
+- **`storage.endpoint` takes a domain.** In cloud mode `endpoint: 'go.sh2.uk'` is the same as `'https://go.sh2.uk/v1/events'`.
+
+### CLI (`npx splithub`)
+
+- **Follows the config.** In cloud mode the CLI talks to the API next to `storage.endpoint` when it names a custom address. `--api` and `SPLITHUB_API` still win.
+
 ## 0.5.1
 
 Security fixes. Update when you can; nothing in your code needs to change.

@@ -66,7 +66,7 @@ class ClientOptions @JvmOverloads constructor(
  */
 class SplitHubClient(private val options: ClientOptions) {
     companion object {
-        const val VERSION = "0.6.1"
+        const val VERSION = "0.7.0"
         const val DEFAULT_ENDPOINT = "https://go.sh2.uk/v1/events"
         const val REMOTE_WAIT_MS = 400L
         const val PROPERTY_WAIT_MS = 5_000L
@@ -94,11 +94,22 @@ class SplitHubClient(private val options: ClientOptions) {
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
     private val warned = HashSet<String>()
 
+    /** Cloud addresses in the order to try them (see [CloudEndpoints]); a custom endpoint alone. */
+    private val onCloud = CloudEndpoints.isCloud(options.endpoint)
+    private val endpoints: List<String> =
+        if (onCloud) CloudEndpoints.list(safeGet(CloudEndpoints.STORAGE_KEY), options.endpoint) else listOf(options.endpoint)
+
+    /** Keeps a cloud address for the next launch: one the cloud announced or a backup that answered. */
+    private fun rememberEndpoint(value: String?) {
+        if (onCloud && CloudEndpoints.isEndpointUrl(value)) safeSet(CloudEndpoints.STORAGE_KEY, value!!.trimEnd('/'))
+    }
+
     private val queue = EventQueue(
         project = PROJECT,
         sdk = options.sdk,
         app = options.app,
-        endpoint = options.endpoint,
+        endpoint = endpoints[0],
+        fallbacks = endpoints.drop(1),
         key = options.publicKey,
         http = options.http,
         storage = storage,
@@ -438,18 +449,29 @@ class SplitHubClient(private val options: ClientOptions) {
     }
 
     private fun fetchOverrides() {
-        val url = options.overridesUrl ?: Overrides.resolveUrl(options.endpoint, options.publicKey)
+        // On the cloud each address is tried in turn; a custom overridesUrl or endpoint is asked once.
+        val urls = options.overridesUrl?.let { listOf(it) } ?: endpoints.map { Overrides.resolveUrl(it, options.publicKey) }
         var fresh: RemoteOverrides? = null
-        try {
-            val res = options.http.get(url, mapOf("cache-control" to "no-cache"))
-            if (res.status == 200) {
-                fresh = Overrides.parseText(res.body)
-                if (fresh != null) writeCache(res.body)
-            } else {
-                debug("overrides answered ${res.status}")
+        for ((i, url) in urls.withIndex()) {
+            try {
+                val res = options.http.get(url, mapOf("cache-control" to "no-cache"))
+                if (i > 0 && options.overridesUrl == null) rememberEndpoint(endpoints[i])
+                if (res.status == 200) {
+                    fresh = Overrides.parseText(res.body)
+                    if (fresh != null) {
+                        writeCache(res.body)
+                        rememberEndpoint(fresh.endpoint)
+                    }
+                } else {
+                    debug("overrides answered ${res.status}")
+                }
+                break
+            } catch (e: java.io.IOException) {
+                debug("overrides not fetched from $url: ${e.message}")
+            } catch (e: Exception) {
+                debug("overrides not fetched: ${e.message}")
+                break
             }
-        } catch (e: Exception) {
-            debug("overrides not fetched: ${e.message}")
         }
         synchronized(lock) { fetching = false }
         decide(fresh, timedOut = false)

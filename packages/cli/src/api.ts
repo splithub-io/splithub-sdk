@@ -1,5 +1,7 @@
 import type { RawResults, RawStatusRow } from '@splithub/node';
-import { readFileSync } from 'node:fs';
+import { isCloudEndpoint, normalizeCloudEndpoint } from '@splithub/core';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { loadCredential } from './credentials';
 import { CliError, fail } from './errors';
 import type { ProjectInfo } from './project';
@@ -27,9 +29,28 @@ function storageFromConfig(project?: ProjectInfo): { mode: 'self' | 'cloud'; end
   }
 }
 
-/** Cloud API base + project API key (sk_...). */
+/**
+ * The cloud API next to `storage.endpoint` of a cloud-mode config in this folder (a staging
+ * cloud, a proxy on the user's own domain). Null for the default and for past cloud addresses.
+ */
+function configCloudApi(): string | null {
+  const file = ['splithub.config.ts', 'splithub.config.mts', 'splithub.config.js', 'splithub.config.mjs'].map((f) => join(process.cwd(), f)).find((f) => existsSync(f));
+  if (!file) return null;
+  try {
+    const src = readFileSync(file, 'utf8');
+    if (/mode\s*:\s*['"]cloud['"]/.exec(src) === null) return null;
+    const raw = /endpoint\s*:\s*['"]([^'"]+)['"]/.exec(src)?.[1];
+    if (!raw) return null;
+    const endpoint = normalizeCloudEndpoint(raw);
+    return isCloudEndpoint(endpoint) ? null : endpoint.replace(/\/events\/?$/, '');
+  } catch {
+    return null;
+  }
+}
+
+/** Cloud API base + project API key (sk_...). --api and SPLITHUB_API win over the config's endpoint. */
 export function cloudTarget(flags: Record<string, unknown>): Target {
-  const url = (typeof flags.api === 'string' && flags.api) || process.env.SPLITHUB_API || CLOUD_API;
+  const url = (typeof flags.api === 'string' && flags.api) || process.env.SPLITHUB_API || configCloudApi() || CLOUD_API;
   const base = url.replace(/\/+$/, '');
   const token = (typeof flags.token === 'string' && flags.token) || process.env.SPLITHUB_API_KEY || loadCredential(base)?.apiKey || undefined;
   return { url: base, token, cloud: true };

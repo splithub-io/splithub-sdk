@@ -1,3 +1,4 @@
+import { normalizeCloudEndpoint } from './endpoint';
 import { validateFlow } from './targeting';
 import type {
   Experiment,
@@ -344,7 +345,7 @@ export function defineConfig(input: SplitHubConfigInput): SplitHubConfig {
 
   return {
     project: input.project,
-    storage: input.storage,
+    storage: input.storage.mode === 'cloud' && input.storage.endpoint ? { ...input.storage, endpoint: normalizeCloudEndpoint(input.storage.endpoint) } : input.storage,
     visitorKey: input.visitorKey ?? 'sh_vid',
     runDraftsInDev: input.runDraftsInDev === true,
     goals,

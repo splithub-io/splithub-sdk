@@ -2,13 +2,14 @@ import { assign, countsForHoldout, holdoutGroup, isDevEnvironment, parseForcePar
 import { debugLog, isDebug } from './debug';
 import { devNote, explainAssignment } from './dev';
 import { goalKeyFor, EVENT_NAME_PATTERN, getExperiment, HOLDOUT_KEY, isSplitHubConfig, pickProperty } from './config';
+import { CLOUD_ENDPOINT, cloudEndpoints, isCloudEndpoint, isEndpointUrl, rememberEndpoint } from './endpoint';
 import { EventQueue, createFetchTransport, type Transport } from './events';
 import { murmur3 } from './hash';
 import { newId, newSessionId, newVisitorId } from './ids';
 import { memoryStorage, safeGet, safeSet, type KeyValueStorage, type PlatformAdapter } from './platform';
 import {
   applyRemoteOverrides,
-  fetchRemoteOverrides,
+  fetchRemoteOverridesFrom,
   readRemoteCache,
   REMOTE_TTL_MS,
   resolveOverridesUrl,
@@ -44,7 +45,7 @@ export const SDK_VERSION = '0.1.0';
  */
 export const REMOTE_WAIT_MS = 400;
 const DEV_NOTE = 'Development sends nothing to the cloud, so your own visits never reach the results. Deployed builds send as usual.';
-export const CLOUD_ENDPOINT = 'https://go.sh2.uk/v1/events';
+export { CLOUD_ENDPOINT };
 /** How long analytics events wait for overrides that may declare their property (a property made in the dashboard). */
 export const PROPERTY_WAIT_MS = 5000;
 /** Goal and event props larger than this (as JSON) are trimmed: the ingest refuses them. */
@@ -210,6 +211,13 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
   // paused or started in the dashboard is right from the first page.
   const base = config;
   const publicKey = config.storage.mode === 'cloud' ? config.storage.key : undefined;
+  // On the cloud the address can move after this build shipped: try the one the cloud last
+  // announced first, then the default and a backup (see endpoint.ts). A custom endpoint stays as written.
+  const local = kv('local');
+  const cloudList = config.storage.mode === 'cloud' && isCloudEndpoint(config.storage.endpoint) && !options.remote?.url ? cloudEndpoints(local, config.storage.endpoint) : null;
+  const adopt = (fresh: RemoteOverrides | null): void => {
+    if (cloudList && fresh && isEndpointUrl(fresh.endpoint)) rememberEndpoint(local, fresh.endpoint);
+  };
   let effective = config;
   let geo: RemoteOverrides['ctx'] | undefined;
   let waitFor: Promise<RemoteOverrides | null> | null = null;
@@ -230,8 +238,10 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
     }
     const stale = !cached || Date.now() - cached.fetchedAt > (options.remote?.ttlMs ?? REMOTE_TTL_MS);
     if (stale) {
-      const url = options.remote?.url ?? resolveOverridesUrl(config.storage.endpoint ?? CLOUD_ENDPOINT, publicKey, all);
-      const fetched = fetchRemoteOverrides(url).then((fresh) => {
+      const urls = cloudList ? cloudList.map((e) => resolveOverridesUrl(e, publicKey, all)) : [options.remote?.url ?? resolveOverridesUrl(config.storage.endpoint ?? CLOUD_ENDPOINT, publicKey, all)];
+      const fetched = fetchRemoteOverridesFrom(urls).then(({ overrides: fresh, answered }) => {
+        if (cloudList && answered > 0) rememberEndpoint(local, cloudList[answered]!);
+        adopt(fresh);
         if (fresh) writeRemoteCache(publicKey, fresh, adapter?.storage, all);
         return fresh;
       });
@@ -306,7 +316,8 @@ export function createClient(config: SplitHubConfig, options: ClientOptions = {}
 
   const transport = options.transport ?? createFetchTransport({
     ...resolveEndpoint(config),
-    keyInQuery: options.keyInQuery ?? (config.storage.mode === 'cloud' && !config.storage.endpoint),
+    ...(cloudList ? { endpoint: cloudList[0], fallbacks: cloudList.slice(1) } : {}),
+    keyInQuery: options.keyInQuery ?? (config.storage.mode === 'cloud' && isCloudEndpoint(config.storage.endpoint)),
     keepalive: !app,
   });
   const queue = new EventQueue({

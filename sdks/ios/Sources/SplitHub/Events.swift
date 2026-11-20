@@ -60,27 +60,56 @@ protocol Transport {
     func send(_ batch: EventBatch, completion: @escaping (SendResult) -> Void)
 }
 
-struct URLSessionTransport: Transport {
-    let endpoint: URL
+/// Sends to the first address; with no answer at all it tries the next ones (see `CloudEndpoints`)
+/// and keeps sending to the one that answered.
+final class URLSessionTransport: Transport {
+    let endpoints: [URL]
     let key: String
     var session: URLSession = .shared
+    private let onSwitch: ((URL) -> Void)?
+    private let lock = NSLock()
+    private var active = 0
+
+    init(endpoint: URL, key: String, fallbacks: [URL] = [], onSwitch: ((URL) -> Void)? = nil) {
+        self.endpoints = [endpoint] + fallbacks.filter { $0 != endpoint }
+        self.key = key
+        self.onSwitch = onSwitch
+    }
 
     func send(_ batch: EventBatch, completion: @escaping (SendResult) -> Void) {
         guard let body = try? JSONEncoder().encode(batch) else {
             completion(.refused(0))
             return
         }
-        var request = URLRequest(url: endpoint)
+        lock.lock()
+        let start = active
+        lock.unlock()
+        attempt(body, start: start, tried: 0, completion: completion)
+    }
+
+    private func attempt(_ body: Data, start: Int, tried: Int, completion: @escaping (SendResult) -> Void) {
+        let at = (start + tried) % endpoints.count
+        var request = URLRequest(url: endpoints[at])
         request.httpMethod = "POST"
         request.httpBody = body
         request.timeoutInterval = 20
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        session.dataTask(with: request) { _, response, _ in
+        session.dataTask(with: request) { [weak self] _, response, _ in
+            guard let self = self else { return }
             guard let http = response as? HTTPURLResponse else {
-                completion(.offline)
+                if tried + 1 < self.endpoints.count {
+                    self.attempt(body, start: start, tried: tried + 1, completion: completion)
+                } else {
+                    completion(.offline)
+                }
                 return
             }
+            self.lock.lock()
+            let moved = at != self.active
+            self.active = at
+            self.lock.unlock()
+            if moved { self.onSwitch?(self.endpoints[at]) }
             let status = http.statusCode
             if (200..<300).contains(status) {
                 completion(.ok)

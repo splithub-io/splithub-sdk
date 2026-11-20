@@ -295,6 +295,8 @@ struct RemoteOverrides: Decodable {
     let holdout: Holdout?
     let layers: [String: LayerSeed]?
     let ctx: GeoContext?
+    /// The cloud's current events URL; the SDK remembers it and sends there from then on.
+    let endpoint: String?
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: JSONKey.self)
@@ -316,6 +318,7 @@ struct RemoteOverrides: Decodable {
         holdout = c.lenient("holdout")
         layers = c.lenient("layers")
         ctx = c.lenient("ctx")
+        endpoint = c.lenient("endpoint")
     }
 
     static func decode(_ data: Data) -> RemoteOverrides? {

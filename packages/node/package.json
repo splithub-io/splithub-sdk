@@ -1,6 +1,6 @@
 {
   "name": "@splithub/node",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Run SplitHub on your own server: one handler for events from websites and apps, raw experiment results and analytics counts, your database behind a small Store interface.",
   "keywords": [
     "splithub",

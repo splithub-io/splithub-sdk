@@ -21,6 +21,9 @@ class EventQueue(
     private val sdk: String,
     private val app: AppInfo?,
     private val endpoint: String,
+    /** Tried in order when [endpoint] gives no answer at all; the one that answers is used from then on. */
+    private val fallbacks: List<String> = emptyList(),
+    private val onEndpoint: ((String) -> Unit)? = null,
     private val key: String?,
     private val http: HttpClient,
     private val storage: KeyValueStorage?,
@@ -43,6 +46,9 @@ class EventQueue(
     }
 
     private class Item(val seq: Long, val json: String)
+
+    private val endpoints: List<String> = listOf(endpoint) + fallbacks.filter { it != endpoint }
+    @Volatile private var active = 0
 
     private val lock = Any()
     private val items = ArrayList<Item>()
@@ -179,12 +185,33 @@ class EventQueue(
         class Offline(val message: String?) : Outcome()
     }
 
+    /** Posts to the active address; with no answer (IOException) tries the next ones, keeping the one that answers. */
+    private fun postAnywhere(headers: Map<String, String>, body: String): Int {
+        val start = active
+        var failure: IOException? = null
+        for (i in endpoints.indices) {
+            val at = (start + i) % endpoints.size
+            val status = try {
+                http.post(endpoints[at], headers, body)
+            } catch (e: IOException) {
+                failure = e
+                continue
+            }
+            if (at != active) {
+                active = at
+                onEndpoint?.invoke(endpoints[at])
+            }
+            return status
+        }
+        throw failure ?: IOException("no endpoint")
+    }
+
     private fun send(batch: List<Item>) {
         val headers = LinkedHashMap<String, String>()
         headers["content-type"] = "application/json"
         if (key != null) headers["authorization"] = "Bearer $key"
         val outcome = try {
-            val status = http.post(endpoint, headers, body(batch))
+            val status = postAnywhere(headers, body(batch))
             when {
                 status in 200..299 -> Outcome.Sent
                 status in 400..499 && status != 408 && status != 429 -> Outcome.Refused(status)

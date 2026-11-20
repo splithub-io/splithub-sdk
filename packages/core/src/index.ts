@@ -16,12 +16,24 @@ export { memoryStorage } from './platform';
 export type { PlatformAdapter, KeyValueStorage } from './platform';
 export type { Transport, TransportOptions, EventQueueOptions } from './events';
 export { createClient, SDK_VERSION, CLOUD_ENDPOINT, REMOTE_WAIT_MS, SESSION_GAP_MS } from './client';
+export {
+  CLOUD_FALLBACK_ENDPOINTS,
+  ENDPOINT_KEY,
+  browserLocalStorage,
+  cloudEndpoints,
+  fetchCloudOverrides,
+  isCloudEndpoint,
+  normalizeCloudEndpoint,
+  rememberEndpoint,
+  rememberedEndpoint,
+} from './endpoint';
 export type { SplitHubClient, ClientOptions } from './client';
 export {
   applyRemoteOverrides,
   isRemoteOverrides,
   resolveOverridesUrl,
   fetchRemoteOverrides,
+  fetchRemoteOverridesFrom,
   readRemoteCache,
   writeRemoteCache,
   EMPTY_OVERRIDES,

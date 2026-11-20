@@ -27,20 +27,26 @@ export interface TransportOptions {
   keyInQuery?: boolean;
   /** `fetch(..., { keepalive })`; default true. Apps pass false: there is no page to outlive. */
   keepalive?: boolean;
+  /** Tried in order when `endpoint` cannot be reached (a network error, not an error status). */
+  fallbacks?: string[];
+  /** Called once a fallback answers; later batches go there first. */
+  onEndpoint?: (endpoint: string) => void;
 }
 
-function beaconUrl(options: TransportOptions): string | null {
-  if (!options.key) return options.endpoint;
+function beaconUrl(options: TransportOptions, endpoint: string): string | null {
+  if (!options.key) return endpoint;
   if (!options.keyInQuery) return null;
-  return `${options.endpoint}${options.endpoint.includes('?') ? '&' : '?'}key=${encodeURIComponent(options.key)}`;
+  return `${endpoint}${endpoint.includes('?') ? '&' : '?'}key=${encodeURIComponent(options.key)}`;
 }
 
 /** Default transport: fetch with keepalive; sendBeacon on page hide when the endpoint allows it. */
 export function createFetchTransport(options: TransportOptions): Transport {
+  const endpoints = [options.endpoint, ...(options.fallbacks ?? []).filter((e) => e !== options.endpoint)];
+  let active = 0;
   return {
     async send(batch, { beacon }) {
       const body = JSON.stringify(batch);
-      const url = beacon && isBrowser() && typeof navigator.sendBeacon === 'function' ? beaconUrl(options) : null;
+      const url = beacon && isBrowser() && typeof navigator.sendBeacon === 'function' ? beaconUrl(options, endpoints[active]!) : null;
       if (url) {
         // A JSON content type is not CORS-safelisted, so a cross-origin beacon goes as text;
         // both ingest handlers parse the body whatever its type.
@@ -59,7 +65,23 @@ export function createFetchTransport(options: TransportOptions): Transport {
       }
       const headers: Record<string, string> = { 'content-type': 'application/json' };
       if (options.key) headers.authorization = `Bearer ${options.key}`;
-      const res = await fetch(options.endpoint, { method: 'POST', headers, body, ...(options.keepalive === false ? {} : { keepalive: true }) });
+      // Only a network failure moves on: an error status means the address works.
+      let res: Response | null = null;
+      let failure: unknown;
+      for (let i = 0; i < endpoints.length && !res; i++) {
+        const at = (active + i) % endpoints.length;
+        try {
+          res = await fetch(endpoints[at]!, { method: 'POST', headers, body, ...(options.keepalive === false ? {} : { keepalive: true }) });
+        } catch (e) {
+          failure = e;
+          continue;
+        }
+        if (at !== active) {
+          active = at;
+          options.onEndpoint?.(endpoints[at]!);
+        }
+      }
+      if (!res) throw failure;
       if (!res.ok) {
         const error = new Error(`[splithub] ingest responded ${res.status}`) as IngestError;
         error.status = res.status;

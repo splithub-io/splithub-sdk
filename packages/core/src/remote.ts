@@ -36,6 +36,8 @@ export interface RemoteOverrides {
   layers?: Record<string, { seed: string }>;
   /** What the cloud knows about this request: country, region, city. Per visitor. */
   ctx?: Pick<TargetingContext, 'country' | 'region' | 'city' | 'timezone'>;
+  /** The cloud's current events URL. Clients on the cloud remember it and send there from then on. */
+  endpoint?: string;
 }
 
 export const EMPTY_OVERRIDES: RemoteOverrides = { version: 0, experiments: {} };
@@ -160,12 +162,27 @@ export function writeRemoteCache(publicKey: string, overrides: RemoteOverrides, 
 }
 
 export async function fetchRemoteOverrides(url: string, fetchImpl: typeof fetch = fetch): Promise<RemoteOverrides | null> {
-  try {
-    const res = await fetchImpl(url, { cache: 'no-cache' });
-    if (!res.ok) return null;
-    const body = (await res.json()) as unknown;
-    return isRemoteOverrides(body) ? body : null;
-  } catch {
-    return null;
+  return (await fetchRemoteOverridesFrom([url], fetchImpl)).overrides;
+}
+
+/**
+ * Tries each URL until one answers; only a network failure moves on (a 404 means the address
+ * works and the key does not). `answered` is the index of the URL that answered, -1 if none did.
+ */
+export async function fetchRemoteOverridesFrom(urls: string[], fetchImpl: typeof fetch = fetch): Promise<{ overrides: RemoteOverrides | null; answered: number }> {
+  for (let i = 0; i < urls.length; i++) {
+    let res: Response;
+    try {
+      res = await fetchImpl(urls[i]!, { cache: 'no-cache' });
+    } catch {
+      continue;
+    }
+    try {
+      const body = res.ok ? ((await res.json()) as unknown) : null;
+      return { overrides: isRemoteOverrides(body) ? body : null, answered: i };
+    } catch {
+      return { overrides: null, answered: i };
+    }
   }
+  return { overrides: null, answered: -1 };
 }

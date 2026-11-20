@@ -12,7 +12,7 @@ In Xcode: **File → Add Package Dependencies…** and paste the repository URL.
 Or in `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/splithub-io/splithub-sdk", from: "0.6.1")
+.package(url: "https://github.com/splithub-io/splithub-sdk", from: "0.7.0")
 ```
 
 Then add `SplitHub` to your target's dependencies.

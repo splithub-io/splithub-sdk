@@ -31,17 +31,16 @@
 import {
   applyRemoteOverrides,
   createClient,
-  CLOUD_ENDPOINT,
   countsForHoldout,
   decideRedirect,
-  fetchRemoteOverrides,
+  browserLocalStorage,
+  fetchCloudOverrides,
   isActive,
   isBot,
   matchPath,
   parseForceParam,
   readRemoteCache,
   redirectTarget,
-  resolveOverridesUrl,
   writeRemoteCache,
   type RedirectDecision,
   type RemoteOverrides,
@@ -162,7 +161,6 @@ export async function boot(options: BootOptions): Promise<RedirectDecision | nul
   window.splithubq = { push: drain } as unknown as Array<[string, ...unknown[]]>;
 
   const base = siteConfig(options.key, options.endpoint);
-  const url = resolveOverridesUrl(options.endpoint ?? CLOUD_ENDPOINT, options.key);
   const pathname = location.pathname;
   const cached = readRemoteCache(options.key);
   const cachedConfig = cached ? applyRemoteOverrides(base, cached.overrides) : base;
@@ -178,7 +176,7 @@ export async function boot(options: BootOptions): Promise<RedirectDecision | nul
   let arriving: Promise<RemoteOverrides | null> | undefined;
   if (mayRedirect || stale) {
     let settled = false;
-    const fetching = fetchRemoteOverrides(url).then((fresh) => {
+    const fetching = fetchCloudOverrides(options.endpoint, options.key, { store: browserLocalStorage() }).then((fresh) => {
       settled = true;
       if (fresh) writeRemoteCache(options.key, fresh);
       return fresh;

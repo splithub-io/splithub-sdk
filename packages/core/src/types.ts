@@ -215,7 +215,11 @@ export type StorageInput =
       mode: 'cloud';
       /** Public project key (`pk_...`). Safe to ship to the browser. */
       key?: string;
-      /** Override the cloud ingest URL (staging, self-hosted cloud). */
+      /**
+       * Where events go, if not the default: a domain (`go.sh2.uk`) or a full URL
+       * (`https://go-staging.sh2.uk/v1/events`, a proxy on your own domain). Unset, the SDK
+       * uses the address the cloud announces, so a move of the cloud needs no new build.
+       */
       endpoint?: string;
     }
   | {

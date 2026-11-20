@@ -20,7 +20,7 @@ import AppKit
 /// `Options.waitMs` for them and shows the control meanwhile.
 public final class SplitHub: ObservableObject {
     public static let shared = SplitHub()
-    public static let version = "0.6.1"
+    public static let version = "0.7.0"
     public static let defaultEndpoint = URL(string: "https://go.sh2.uk/v1/events")!
 
     public struct Options {
@@ -87,6 +87,9 @@ public final class SplitHub: ObservableObject {
     private var options = Options()
     private var publicKey = ""
     private var overridesURL: URL?
+    /// Cloud addresses in the order to try them (see `CloudEndpoints`); a custom endpoint alone.
+    private var endpoints: [URL] = []
+    private var onCloud = false
     private var wanted: String?
     private var queue: EventQueue?
     private var app: AppInfo?
@@ -226,7 +229,9 @@ public final class SplitHub: ObservableObject {
         session = IDs.new("s_")
         let info = Device.appInfo()
         app = info
-        overridesURL = options.overridesURL ?? Keys.overridesURL(endpoint.absoluteString, key)
+        onCloud = CloudEndpoints.isCloud(endpoint)
+        endpoints = onCloud ? CloudEndpoints.list(remembered: defaults.string(forKey: CloudEndpoints.key), configured: endpoint) : [endpoint]
+        overridesURL = options.overridesURL ?? Keys.overridesURL(endpoints[0].absoluteString, key)
 
         if !self.options.disabled {
             var settings = EventQueue.Settings()
@@ -236,7 +241,7 @@ public final class SplitHub: ObservableObject {
                 project: "app",
                 sdk: "ios/\(Self.version)",
                 app: info,
-                transport: URLSessionTransport(endpoint: endpoint, key: key),
+                transport: URLSessionTransport(endpoint: endpoints[0], key: key, fallbacks: Array(endpoints.dropFirst())),
                 fileURL: Self.queueFile(),
                 settings: settings
             )
@@ -431,18 +436,39 @@ public final class SplitHub: ObservableObject {
         sends.forEach { $0() }
     }
 
+    /// Keeps a cloud address for the next launch: one the cloud announced or a backup that answered.
+    private func rememberEndpoint(_ value: String?) {
+        guard onCloud, let url = CloudEndpoints.parse(value) else { return }
+        defaults.set(url.absoluteString, forKey: CloudEndpoints.key)
+    }
+
     private func fetchOverrides(deciding: Bool) {
-        guard let url = overridesURL else {
+        // On the cloud each address is tried in turn; a custom overridesURL or endpoint is asked once.
+        let urls: [URL] = options.overridesURL == nil && onCloud
+            ? endpoints.compactMap { Keys.overridesURL($0.absoluteString, publicKey) }
+            : overridesURL.map { [$0] } ?? []
+        guard !urls.isEmpty else {
             if deciding { decide(nil) }
             return
         }
-        let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
+        fetchOverrides(urls, index: 0, deciding: deciding)
+    }
+
+    private func fetchOverrides(_ urls: [URL], index: Int, deciding: Bool) {
+        let request = URLRequest(url: urls[index], cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
         URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
             guard let self = self else { return }
+            // No answer at all: the next address. An error status means this one works.
+            if response == nil && index + 1 < urls.count {
+                self.fetchOverrides(urls, index: index + 1, deciding: deciding)
+                return
+            }
+            if response != nil && index > 0 && urls.count == self.endpoints.count { self.rememberEndpoint(self.endpoints[index].absoluteString) }
             var fresh: RemoteOverrides?
             if let http = response as? HTTPURLResponse, http.statusCode == 200, let data = data, let o = RemoteOverrides.decode(data) {
                 fresh = o
                 self.writeCache(data)
+                self.rememberEndpoint(o.endpoint)
             }
             self.lock.lock()
             if let f = fresh { self.propConfig = Overrides.apply(Config(), f) }

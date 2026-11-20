@@ -1,6 +1,5 @@
 import {
   applyRemoteOverrides,
-  CLOUD_ENDPOINT,
   countsForHoldout,
   decideRedirect,
   explainAssignment,
@@ -22,7 +21,7 @@ import {
   type TargetingContext,
 } from '@splithub/core';
 import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
-import { getRemoteOverrides } from './remote';
+import { cloudIngestUrls, getRemoteOverrides } from './remote';
 
 export const VISITOR_HEADER = 'x-splithub-vid';
 const ONE_YEAR = 60 * 60 * 24 * 365;
@@ -71,9 +70,9 @@ export function requestContext(headers: Headers, url: string, visitor?: 'new' | 
   };
 }
 
-function ingestTarget(config: SplitHubConfig, origin: string): { url: string; key?: string } {
-  if (config.storage.mode === 'self') return { url: new URL(config.storage.endpoint, origin).toString() };
-  return { url: config.storage.endpoint ?? CLOUD_ENDPOINT, key: config.storage.key };
+function ingestTarget(config: SplitHubConfig, origin: string): { urls: string[]; key?: string } {
+  if (config.storage.mode === 'self') return { urls: [new URL(config.storage.endpoint, origin).toString()] };
+  return { urls: cloudIngestUrls(config), key: config.storage.key };
 }
 
 /**
@@ -167,7 +166,18 @@ export function splithubMiddleware(baseConfig: SplitHubConfig, options: Middlewa
         headers['user-agent'] = ua;
         headers['x-splithub-ua'] = ua;
       }
-      const send = fetch(target.url, { method: 'POST', headers, body: JSON.stringify(batch) }).catch(() => undefined);
+      const body = JSON.stringify(batch);
+      // The next cloud address only on a network failure; an error status means this one works.
+      const send = (async () => {
+        for (const url of target.urls) {
+          try {
+            await fetch(url, { method: 'POST', headers, body });
+            return;
+          } catch {
+            // unreachable: try the next address
+          }
+        }
+      })();
       if (event?.waitUntil) event.waitUntil(send);
     }
 

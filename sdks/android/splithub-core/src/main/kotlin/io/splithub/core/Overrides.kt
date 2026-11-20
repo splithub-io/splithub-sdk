@@ -29,6 +29,8 @@ data class RemoteOverrides(
     val holdout: Holdout? = null,
     val layers: Map<String, String?>? = null,
     val ctx: Geo? = null,
+    /** The cloud's current events URL; the client remembers it and sends there from then on. */
+    val endpoint: String? = null,
 )
 
 object Overrides {
@@ -58,6 +60,7 @@ object Overrides {
             holdout = ConfigJson.holdout(m["holdout"]),
             layers = ConfigJson.layers(m["layers"]),
             ctx = m.obj("ctx")?.let { Geo(it.str("country"), it.str("region"), it.str("city"), it.str("timezone")) },
+            endpoint = m.str("endpoint"),
         )
     }
 

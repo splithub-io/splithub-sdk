@@ -1,4 +1,13 @@
-import { CLOUD_ENDPOINT, fetchRemoteOverrides, resolveOverridesUrl, REMOTE_TTL_MS, type RemoteOverrides, type SplitHubConfig } from '@splithub/core';
+import { CLOUD_ENDPOINT, cloudEndpoints, fetchCloudOverrides, isCloudEndpoint, memoryStorage, resolveOverridesUrl, REMOTE_TTL_MS, type RemoteOverrides, type SplitHubConfig } from '@splithub/core';
+
+// The cloud address this server last heard (announced in the overrides, or the backup that answered).
+const endpointStore = memoryStorage();
+
+/** Where a cloud-mode server sends events, in the order to try them; a custom endpoint is the only one. */
+export function cloudIngestUrls(config: SplitHubConfig): string[] {
+  if (config.storage.mode !== 'cloud') return [];
+  return isCloudEndpoint(config.storage.endpoint) ? cloudEndpoints(endpointStore, config.storage.endpoint) : [config.storage.endpoint as string];
+}
 
 interface MemoEntry {
   at: number;
@@ -30,7 +39,7 @@ export async function getRemoteOverrides(config: SplitHubConfig, options: Remote
   if (entry && now - entry.at < ttl) return entry.value;
   if (entry?.pending) return entry.value ?? entry.pending;
 
-  const pending = fetchRemoteOverrides(url, options.fetchImpl).then((value) => {
+  const pending = fetchCloudOverrides(config.storage.endpoint, config.storage.key, { store: endpointStore, ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}) }).then((value) => {
     memo.set(url, { at: Date.now(), value: value ?? entry?.value ?? null, pending: null });
     return value ?? entry?.value ?? null;
   });
